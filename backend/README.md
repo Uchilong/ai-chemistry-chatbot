@@ -33,7 +33,7 @@ This backend provides specialized chemistry tools orchestrated by AI for high sc
   - Classify diagram types (reactions, structures, graphs)
   - Support for mathematical equations
 - **APIs**: 
-  - Primary: Mathpix API (requires `MATHPIX_APP_ID`, `MATHPIX_APP_KEY`)
+  - Primary: SimplePix2Text (pix2text alternative - free, no API key needed)
   - Fallback: Gemini Vision API (requires `GEMINI_API_KEY`)
 
 ### 🎨 Media Tool (`backend/tools/media_tool.py`)
@@ -91,8 +91,6 @@ MISTRAL_API_KEY=your_mistral_key_here
 
 # Optional but recommended
 WOLFRAM_APP_ID=your_wolfram_app_id
-MATHPIX_APP_ID=your_mathpix_app_id
-MATHPIX_APP_KEY=your_mathpix_app_key
 POLLINATIONS_API_KEY=your_pollinations_key
 ```
 
@@ -139,7 +137,7 @@ The backend is designed to work with the existing Streamlit frontend. The LLM ro
 
 - ✅ **PubChem**: Fully functional (free)
 - ⚠️ **Wolfram**: Requires API key for full functionality
-- ⚠️ **Vision**: Requires Mathpix or Gemini API key
+- ⚠️ **Vision**: Requires Gemini API key (SimplePix2Text uses free local OCR as primary)
 - ✅ **Media**: Functional with free Pollinations tier
 
 ## Error Handling

@@ -5,11 +5,9 @@ from chemistry_tools import build_solver_hints
 from chemistry_kb import retrieve_snippets
 
 try:
-    # mistralai<2 exposed the client at top-level
-    from mistralai import Mistral  # type: ignore
+    from groq import Groq
 except ImportError:
-    # mistralai>=2 moved Mistral into mistralai.client
-    from mistralai.client import Mistral  # type: ignore
+    Groq = None
 
 # PyPDF2 is an optional dependency for PDF processing.
 try:
@@ -19,10 +17,10 @@ except ImportError:
 
 # Import config for API key and settings
 try:
-    from config import MISTRAL_API_KEY, MISTRAL_MODEL
+    from config import GROQ_API_KEY, GROQ_MODEL
 except ImportError:
-    MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY", "")
-    MISTRAL_MODEL = "mistral-large-latest"
+    GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+    GROQ_MODEL = "mixtral-8x7b-32768"  # Free model, ultra-fast
 
 # Try to import vision tool for pix2text OCR
 try:
@@ -38,27 +36,30 @@ except ImportError:
     print("Warning: Vision tool (pix2text) not available. Image analysis may be limited.")
 
 
-class MistralChemistryBrain:
-    """Backend brain for AI Chemistry Chatbot using Mistral API - Fast Thinking Mode."""
+class GroqChemistryBrain:
+    """Backend brain for AI Chemistry Chatbot using Groq API - Lightning-Fast Mode."""
 
-    def __init__(self, api_key: Optional[str] = None, model: str = "mistral-large-latest"):
+    def __init__(self, api_key: Optional[str] = None, model: str = "mixtral-8x7b-32768"):
         """
-        Initialize the Mistral Chemistry AI Brain.
+        Initialize the Groq Chemistry AI Brain.
 
         Args:
-            api_key: Mistral API key. If None, will try to load from MISTRAL_API_KEY env variable.
-            model: Model to use (default: mistral-large-latest)
+            api_key: Groq API key. If None, will try to load from GROQ_API_KEY env variable.
+            model: Model to use (default: mixtral-8x7b-32768 - free & fastest)
         """
-        self.api_key = api_key or MISTRAL_API_KEY
+        if Groq is None:
+            raise ImportError("groq package not installed. Install with: pip install groq")
+        
+        self.api_key = api_key or GROQ_API_KEY
 
         if not self.api_key:
             raise ValueError(
-                "MISTRAL_API_KEY not provided. Please set it as an environment variable "
+                "GROQ_API_KEY not provided. Please set it as an environment variable "
                 "or pass it to the constructor. "
-                "Get your key at: https://console.mistral.ai/api-keys/"
+                "Get your free key at: https://console.groq.com/keys"
             )
 
-        self.client = Mistral(api_key=self.api_key)
+        self.client = Groq(api_key=self.api_key)
         self.model = model
 
         self.system_prompt = """You are an expert Chemistry AI tutor specializing in helping students learn chemistry with SPEED and ACCURACY.
@@ -149,15 +150,8 @@ Always:
 
     @staticmethod
     def _format_error(prefix: str, error: Exception) -> str:
-        """Return a user-friendly API error message."""
-        message = str(error)
-        lowered = message.lower()
-        if "401" in message or "unauthorized" in lowered:
-            return (
-                "Error: Unauthorized API request (401). "
-                "Please check that `MISTRAL_API_KEY` is set correctly and still valid."
-            )
-        return f"{prefix}: {message}"
+        error_msg = str(error)
+        return f"{prefix}: {error_msg}"
 
     def chat(
         self,
@@ -166,51 +160,47 @@ Always:
         chemistry_context: Optional[Dict[str, str]] = None
     ) -> str:
         """
-        Send a text message and get AI response.
+        Send a message and get AI response - ultra-fast with Groq.
 
         Args:
-            user_message: The user's chemistry question or message
-            chat_history: Previous messages for context (list of dicts with 'role' and 'content')
+            user_message: The user's question or message
+            chat_history: Previous messages for context
+            chemistry_context: Chemistry level and style context
 
         Returns:
             AI's response text
         """
         try:
-            # Build conversation history for context
-            messages = [
-                {"role": "system", "content": self.system_prompt}
-            ]
-
-            # Add previous messages if provided
-            if chat_history:
-                for msg in chat_history:
-                    role = msg.get("role", "user")
-                    content = msg.get("content", "")
-                    messages.append({"role": role, "content": content})
-
-            # Add current message
+            # Build context instruction
             context_instruction = self._build_context_instruction(user_message, chemistry_context)
-            messages.append(
-                {
-                    "role": "user",
-                    "content": f"{context_instruction}\n\nUser question:\n{user_message}"
-                }
-            )
-
-            # Get response from Mistral (v1.x API)
-            response = self.client.chat.complete(
+            
+            # Prepare messages for Groq
+            messages = [
+                {"role": "system", "content": self.system_prompt},
+                {"role": "system", "content": context_instruction}
+            ]
+            
+            # Add chat history if provided
+            if chat_history:
+                for msg in chat_history[-10:]:  # Limit to last 10 messages
+                    if isinstance(msg, dict) and "role" in msg and "content" in msg:
+                        if msg["role"] in ["user", "assistant"]:
+                            messages.append(msg)
+            
+            # Add current user message
+            messages.append({"role": "user", "content": user_message})
+            
+            # Get response from Groq - lightning fast!
+            completion = self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
                 temperature=0.7,
-                max_tokens=2048
+                max_tokens=1500,
+                timeout=30.0  # 30 second timeout
             )
-
-            content = response.choices[0].message.content
-            if isinstance(content, str):
-                return content
-            # Some SDK versions can return structured message parts.
-            return str(content)
-
+            
+            return completion.choices[0].message.content
+        
         except Exception as e:
             return self._format_error("Error processing your question", e)
 
@@ -223,7 +213,7 @@ Always:
     ) -> str:
         """
         Handle image analysis using pix2text (SimplePix2Text) OCR to extract content,
-        then process as text through Mistral. Gracefully handles extraction timeouts.
+        then process as text through Groq.
 
         Args:
             user_message: The user's question about the image
@@ -253,7 +243,7 @@ Always:
 
 User Question: {user_message}"""
                         
-                        # Process extracted text through Mistral
+                        # Process extracted text through Groq
                         return self.chat(extracted_content, chat_history, chemistry_context)
                     elif ocr_result:
                         return f"⚠️ Image text extraction note: {ocr_result.error_message}\n\nPlease describe what you see in the image for analysis."
@@ -266,7 +256,7 @@ User Question: {user_message}"""
                     print(f"⚠️  pix2text extraction error: {str(e)}")
                     return "⚠️ Image analysis encountered an error. Please describe the image content in text format."
             else:
-                return "⚠️ Image analysis is currently unavailable. Please describe the image content in text format, or switch to Gemini API for visual analysis."
+                return "⚠️ Image analysis is currently unavailable. Please describe the image content in text format."
         
         except Exception as e:
             return f"Error processing image: {str(e)}"
@@ -279,7 +269,7 @@ User Question: {user_message}"""
         chemistry_context: Optional[Dict[str, str]] = None
     ) -> str:
         """
-        Handle file input — images are unsupported; text/PDF content is extracted and sent as text.
+        Handle file input — images are processed with OCR; text/PDF content is extracted and sent as text.
 
         Args:
             user_message: The user's question about the file
@@ -321,15 +311,12 @@ User Question: {user_message}"""
             if len(content) > 8000:
                 content = content[:8000] + "\n\n[Content truncated for length...]"
 
-            enhanced_message = (
-                f"I'm sharing a text file '{Path(file_path).name}' for analysis.\n\n"
-                f"File content:\n---\n{content}\n---\n\n{user_message}"
-            )
+            enhanced_message = f"I'm sharing a text file '{Path(file_path).name}' for analysis.\n\nFile content:\n---\n{content}\n---\n\n{user_message}"
 
             return self.chat(enhanced_message, chat_history, chemistry_context)
-
+        
         except Exception as e:
-            return self._format_error("Error reading text file", e)
+            return self._format_error("Error processing text file", e)
 
     def _handle_pdf_file(
         self,
@@ -341,115 +328,41 @@ User Question: {user_message}"""
         """Handle PDF file analysis."""
         try:
             if PyPDF2 is None:
-                return "Error: PyPDF2 is not installed. Please run: pip install PyPDF2"
-            content = ""
+                return "⚠️ PDF processing requires PyPDF2. Please install it with: pip install PyPDF2"
+
+            text_content = ""
             with open(file_path, "rb") as f:
-                reader = PyPDF2.PdfReader(f)
-                page_count = min(len(reader.pages), 20)
-                for i in range(page_count):
-                    content += reader.pages[i].extract_text() + "\n"
+                pdf_reader = PyPDF2.PdfReader(f)
+                for page_num in range(min(len(pdf_reader.pages), 5)):  # Limit to 5 pages
+                    page = pdf_reader.pages[page_num]
+                    text_content += page.extract_text()
 
-            if len(content) > 8000:
-                content = content[:8000] + "\n\n[PDF content truncated for length...]"
+            if len(text_content) > 8000:
+                text_content = text_content[:8000] + "\n\n[Content truncated for length...]"
 
-            enhanced_message = (
-                f"I'm sharing a PDF file '{Path(file_path).name}' "
-                f"(first {page_count} pages) for analysis.\n\n"
-                f"PDF content:\n---\n{content}\n---\n\n{user_message}"
-            )
+            enhanced_message = f"I'm sharing a PDF file '{Path(file_path).name}' for analysis.\n\nFile content:\n---\n{text_content}\n---\n\n{user_message}"
 
             return self.chat(enhanced_message, chat_history, chemistry_context)
-
+        
         except Exception as e:
-            return self._format_error("Error reading PDF file", e)
-
-    def analyze_chemistry_concept(self, concept: str) -> str:
-        """
-        Get a detailed explanation of a chemistry concept.
-
-        Args:
-            concept: The chemistry concept to explain
-
-        Returns:
-            Detailed explanation
-        """
-        prompt = f"""Please provide a comprehensive explanation of the chemistry concept: "{concept}"
-
-Include:
-1. Definition
-2. Key characteristics
-3. Real-world applications
-4. Examples
-5. Related concepts
-6. Common misconceptions (if any)"""
-
-        return self.chat(prompt)
-
-    def solve_problem(self, problem: str) -> str:
-        """
-        Solve a chemistry problem step-by-step.
-
-        Args:
-            problem: The chemistry problem to solve
-
-        Returns:
-            Step-by-step solution
-        """
-        prompt = f"""Please solve this chemistry problem step-by-step:
-
-{problem}
-
-Format your answer with:
-1. Given information
-2. What we need to find
-3. Relevant formulas/equations
-4. Step-by-step calculation
-5. Final answer with units
-6. Brief explanation of the result"""
-
-        return self.chat(prompt)
-
-    def get_molecule_info(self, molecule_name: str) -> str:
-        """
-        Get information about a molecule.
-
-        Args:
-            molecule_name: Name of the molecule
-
-        Returns:
-            Detailed molecule information
-        """
-        prompt = f"""Provide detailed information about {molecule_name}:
-
-1. Chemical formula
-2. Molecular structure (description)
-3. Molar mass
-4. Uses and applications
-5. Safety information
-6. Interesting facts"""
-
-        return self.chat(prompt)
+            return self._format_error("Error processing PDF file", e)
 
 
-# Initialize and cache the Mistral brain instance
-_mistral_brain_instance = None
-
-
-def get_mistral_brain(
-    api_key: Optional[str] = None,
-    model: str = "mistral-large-latest"
-) -> MistralChemistryBrain:
+def get_groq_brain(api_key: Optional[str] = None) -> Optional[GroqChemistryBrain]:
     """
-    Get or create the Mistral Chemistry AI Brain instance (singleton pattern).
-
+    Get or create a Groq Chemistry AI Brain instance.
+    
     Args:
-        api_key: Mistral API key (optional)
-        model: Model name to use
-
+        api_key: Optional API key (uses GROQ_API_KEY env var if not provided)
+    
     Returns:
-        MistralChemistryBrain instance
+        GroqChemistryBrain instance or None if initialization fails
     """
-    global _mistral_brain_instance
-    if _mistral_brain_instance is None:
-        _mistral_brain_instance = MistralChemistryBrain(api_key=api_key, model=model)
-    return _mistral_brain_instance
+    try:
+        return GroqChemistryBrain(api_key=api_key)
+    except ValueError as e:
+        print(f"⚠️  Groq initialization skipped: {e}")
+        return None
+    except Exception as e:
+        print(f"Error initializing Groq: {e}")
+        return None

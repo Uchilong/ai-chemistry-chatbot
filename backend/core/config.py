@@ -10,9 +10,7 @@ load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY", "")
 WOLFRAM_APP_ID = os.getenv("WOLFRAM_APP_ID", "")
-MATHPIX_APP_ID = os.getenv("MATHPIX_APP_ID", "")
-MATHPIX_APP_KEY = os.getenv("MATHPIX_APP_KEY", "")
-POLLINATIONS_API_KEY = os.getenv("POLLINATIONS_API_KEY", "")
+POLLINATIONS_API_KEY = os.getenv("POLLINATIONS_API_KEY", ""))
 
 # Backend Configuration
 BACKEND_HOST = os.getenv("BACKEND_HOST", "0.0.0.0")
@@ -55,9 +53,6 @@ def validate_config():
     if not WOLFRAM_APP_ID:
         print("Warning: WOLFRAM_APP_ID not set. Wolfram Alpha features will be limited.")
     
-    if not MATHPIX_APP_ID or not MATHPIX_APP_KEY:
-        print("Warning: Mathpix credentials not set. OCR features will be limited.")
-    
     if missing_keys:
         raise ValueError("Missing required configuration:\n" + "\n".join(f"- {key}" for key in missing_keys))
     
@@ -76,7 +71,7 @@ def get_tool_status():
         },
         "vision": {
             "enabled": ENABLE_VISION,
-            "status": "full" if (MATHPIX_APP_ID and MATHPIX_APP_KEY) or GEMINI_API_KEY else "limited"
+            "status": "full" if GEMINI_API_KEY else "limited"
         },
         "media": {
             "enabled": ENABLE_MEDIA,

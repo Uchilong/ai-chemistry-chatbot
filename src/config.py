@@ -9,6 +9,7 @@ load_dotenv()
 # Initialize API keys, which will be populated by secrets or env vars.
 GEMINI_API_KEY = ""
 MISTRAL_API_KEY = ""
+GROQ_API_KEY = ""
 
 # Try to load from Streamlit secrets first (for cloud deployment)
 try:
@@ -17,6 +18,7 @@ try:
     # which is the desired behavior to fall back to environment variables.
     GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY", "")
     MISTRAL_API_KEY = st.secrets.get("MISTRAL_API_KEY", "")
+    GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "")
 except Exception:
     # This block will be entered if:
     # 1. `streamlit` is not installed (ImportError).
@@ -29,6 +31,8 @@ if not GEMINI_API_KEY:
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 if not MISTRAL_API_KEY:
     MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY", "")
+if not GROQ_API_KEY:
+    GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 
 # App Configuration
 APP_TITLE = "🧪 AI Trợ lý Hóa học"

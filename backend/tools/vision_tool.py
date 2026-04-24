@@ -28,24 +28,16 @@ class OCRResult:
     error_message: Optional[str] = None
 
 class VisionTool:
-    """Tool for image analysis and OCR using SimplePix2Text, Mathpix, and Gemini Vision."""
+    """Tool for image analysis and OCR using SimplePix2Text (pix2text) and Gemini Vision."""
     
-    def __init__(self, mathpix_app_id: Optional[str] = None, 
-                 mathpix_app_key: Optional[str] = None,
-                 gemini_api_key: Optional[str] = None):
+    def __init__(self, gemini_api_key: Optional[str] = None):
         """
         Initialize Vision tool.
         
         Args:
-            mathpix_app_id: Mathpix App ID
-            mathpix_app_key: Mathpix App Key  
             gemini_api_key: Gemini API Key (for fallback vision)
         """
-        self.mathpix_app_id = mathpix_app_id or os.getenv("MATHPIX_APP_ID", "")
-        self.mathpix_app_key = mathpix_app_key or os.getenv("MATHPIX_APP_KEY", "")
         self.gemini_api_key = gemini_api_key or os.getenv("GEMINI_API_KEY", "")
-        
-        self.mathpix_url = "https://api.mathpix.com/v3/text"
         
         # Initialize SimplePix2Text
         self.pix2text = simple_pix2text if PIX2TEXT_AVAILABLE else None
@@ -53,16 +45,14 @@ class VisionTool:
         # Warn about available OCR services
         available_services = []
         if PIX2TEXT_AVAILABLE:
-            available_services.append("SimplePix2Text (Free)")
-        if self.mathpix_app_id and self.mathpix_app_key:
-            available_services.append("Mathpix")
+            available_services.append("SimplePix2Text (Free pix2text alternative)")
         if self.gemini_api_key:
             available_services.append("Gemini Vision")
         
         if available_services:
             print(f"Available OCR services: {', '.join(available_services)}")
         else:
-            print("Warning: No OCR services available. Add SimplePix2Text, Mathpix, or Gemini API keys.")
+            print("Warning: No OCR services available. Add SimplePix2Text or Gemini API key.")
     
     def extract_from_image(self, image_path: str) -> OCRResult:
         """
@@ -78,12 +68,6 @@ class VisionTool:
             # Try SimplePix2Text first (free and optimized for chemistry)
             if self.pix2text:
                 result = self._extract_with_pix2text(image_path)
-                if result.success:
-                    return result
-            
-            # Try Mathpix next (best for equations, if available)
-            if self.mathpix_app_id and self.mathpix_app_key:
-                result = self._extract_with_mathpix(image_path)
                 if result.success:
                     return result
             
@@ -145,7 +129,7 @@ class VisionTool:
             )
     
     def _extract_with_easyocr(self, image_path: str) -> OCRResult:
-        """Extract text using EasyOCR (free alternative to Mathpix)."""
+        """Extract text using EasyOCR (free OCR alternative)."""
         try:
             # Read image using EasyOCR
             results = self.easyocr_reader.readtext(image_path)
@@ -192,74 +176,6 @@ class VisionTool:
                 confidence=0.0,
                 success=False,
                 error_message=f"EasyOCR extraction failed: {str(e)}"
-            )
-    
-    def _extract_with_mathpix(self, image_path: str) -> OCRResult:
-        """Extract text using Mathpix API."""
-        try:
-            # Read and encode image
-            with open(image_path, "rb") as image_file:
-                image_data = base64.b64encode(image_file.read()).decode()
-            
-            # Prepare Mathpix request
-            headers = {
-                "app_id": self.mathpix_app_id,
-                "app_key": self.mathpix_app_key,
-                "Content-type": "application/json"
-            }
-            
-            data = {
-                "src": "data:image/jpeg;base64," + image_data,
-                "formats": ["text", "latex_styled"],
-                "data_options": {
-                    "include_latex": True,
-                    "include_asciimath": True
-                }
-            }
-            
-            response = requests.post(self.mathpix_url, json=data, headers=headers, timeout=30)
-            
-            if response.status_code == 200:
-                result_data = response.json()
-                
-                extracted_text = result_data.get("text", "")
-                latex_text = result_data.get("latex_styled", "")
-                confidence = result_data.get("confidence", 0.0)
-                
-                # Combine text and LaTeX
-                full_text = extracted_text
-                if latex_text:
-                    full_text += "\n\nLaTeX:\n" + latex_text
-                
-                # Extract equations and formulas
-                equations = self._extract_equations(full_text)
-                chemical_formulas = self._extract_chemical_formulas(full_text)
-                
-                return OCRResult(
-                    extracted_text=full_text,
-                    equations=equations,
-                    chemical_formulas=chemical_formulas,
-                    confidence=confidence,
-                    success=True
-                )
-            else:
-                return OCRResult(
-                    extracted_text="",
-                    equations=[],
-                    chemical_formulas=[],
-                    confidence=0.0,
-                    success=False,
-                    error_message=f"Mathpix API error: {response.status_code} - {response.text}"
-                )
-                
-        except Exception as e:
-            return OCRResult(
-                extracted_text="",
-                equations=[],
-                chemical_formulas=[],
-                confidence=0.0,
-                success=False,
-                error_message=f"Mathpix extraction failed: {str(e)}"
             )
     
     def _extract_with_gemini(self, image_path: str) -> OCRResult:
@@ -313,7 +229,7 @@ class VisionTool:
             # This is a placeholder - in real implementation, you'd use
             # libraries like pytesseract or EasyOCR
             return OCRResult(
-                extracted_text="OCR requires Mathpix or Gemini API credentials. Please configure API keys to extract text from images.",
+                extracted_text="OCR requires pix2text (SimplePix2Text) or Gemini API credentials. Please configure API keys to extract text from images.",
                 equations=[],
                 chemical_formulas=[],
                 confidence=0.0,

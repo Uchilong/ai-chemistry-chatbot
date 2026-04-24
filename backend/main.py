@@ -304,7 +304,7 @@ async def health_check():
         "tools": {
             "pubchem": "available",
             "wolfram": "available" if wolfram_tool.app_id else "limited (no API key)",
-            "vision": "available" if vision_tool.mathpix_app_id or vision_tool.gemini_api_key else "limited (no API keys)",
+            "vision": "available" if vision_tool.gemini_api_key else "limited (no API key)",
             "media": "available"
         }
     }

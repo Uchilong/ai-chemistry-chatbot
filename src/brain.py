@@ -13,6 +13,19 @@ except ImportError:
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
     MODEL_NAME = "gemini-2.0-flash"
 
+# Try to import vision tool for pix2text OCR
+try:
+    import sys
+    from pathlib import Path as PathlibPath
+    backend_path = str(PathlibPath(__file__).parent.parent / "backend")
+    if backend_path not in sys.path:
+        sys.path.insert(0, backend_path)
+    from tools.vision_tool import VisionTool
+    VISION_TOOL_AVAILABLE = True
+except ImportError:
+    VISION_TOOL_AVAILABLE = False
+    print("Warning: Vision tool (pix2text) not available. Image analysis may be limited.")
+
 
 class ChemistryAIBrain:
     """Backend brain for AI Chemistry Chatbot using Google Gemini API - Accurate Thinking Mode."""
@@ -40,7 +53,7 @@ class ChemistryAIBrain:
 ## Available Tools
 - **pubchem_tool**: Fetches chemical properties, molar mass, structural information
 - **wolfram_tool**: Balances equations, performs calculations, solves math problems
-- **vision_tool**: Extracts text/equations from images using OCR (Mathpix/Gemini Vision)
+- **vision_tool**: Extracts text/equations from images using OCR (pix2text/Gemini Vision)
 - **media_tool**: Generates educational images and audio content
 
 ## Your Workflow
@@ -96,6 +109,27 @@ If tools fail, provide conceptual explanations and suggest alternative approache
             MODEL_NAME,
             system_instruction=self.system_prompt
         )
+        
+        # Vision tool initialized lazily to avoid startup delays
+        self._vision_tool = None
+        self._vision_tool_initialized = False
+
+    def _get_vision_tool(self):
+        """Get vision tool, initializing lazily only when needed."""
+        if not self._vision_tool_initialized:
+            self._vision_tool_initialized = True
+            if VISION_TOOL_AVAILABLE:
+                try:
+                    self._vision_tool = VisionTool(gemini_api_key=self.api_key)
+                except Exception as e:
+                    print(f"Warning: Could not initialize vision tool: {e}")
+                    self._vision_tool = None
+        return self._vision_tool
+    
+    @property
+    def vision_tool(self):
+        """Lazy property for vision tool."""
+        return self._get_vision_tool()
 
     def _build_context_instruction(
         self,
@@ -291,6 +325,8 @@ If tools fail, provide conceptual explanations and suggest alternative approache
     ) -> str:
         """
         Send a message with an image and get AI response.
+        First tries pix2text (SimplePix2Text) to extract text/equations from the image,
+        then analyzes with Gemini. Gracefully handles extraction timeouts.
         
         Args:
             user_message: The user's question about the image
@@ -304,14 +340,54 @@ If tools fail, provide conceptual explanations and suggest alternative approache
             if not Path(image_path).exists():
                 return f"Error: Image file not found at {image_path}"
             
-            # The library can handle PIL images directly
+            # Extract text from image using pix2text (SimplePix2Text)
+            # with fallback if extraction takes too long or fails
+            extracted_content = ""
+            vision_tool = self.vision_tool
+            if vision_tool:
+                try:
+                    # Set a reasonable timeout for extraction
+                    import signal
+                    
+                    def extraction_timeout_handler(signum, frame):
+                        raise TimeoutError("Image extraction took too long")
+                    
+                    # Try extraction with timeout (skip on Windows where signal doesn't work for non-main thread)
+                    try:
+                        ocr_result = vision_tool.extract_from_image(image_path)
+                    except TimeoutError:
+                        print("⚠️  pix2text extraction timeout - using Gemini analysis only")
+                        ocr_result = None
+                    
+                    if ocr_result and ocr_result.success:
+                        extracted_content = f"""📋 **Text/Equations Extracted from Image:**
+- Extracted Text: {ocr_result.extracted_text}
+- Equations Found: {', '.join(ocr_result.equations) if ocr_result.equations else 'None'}
+- Chemical Formulas: {', '.join(ocr_result.chemical_formulas) if ocr_result.chemical_formulas else 'None'}
+- Confidence: {ocr_result.confidence:.1%}
+
+"""
+                    elif ocr_result and not ocr_result.success:
+                        print(f"⚠️  pix2text extraction note: {ocr_result.error_message}")
+                except Exception as e:
+                    # Fail gracefully - just proceed with Gemini analysis
+                    print(f"⚠️  pix2text extraction error (using Gemini only): {str(e)}")
+            
+            # Load the image for Gemini analysis
             img = Image.open(image_path)
             
-            # Send to Gemini with image
-            # The system prompt is already part of the model configuration
-            # We can send the user message and image as a list of parts
-            context_instruction = self._build_context_instruction(user_message, chemistry_context)
-            response = self.model.generate_content([context_instruction, user_message, img])
+            # Build context instruction with extraction info
+            context_instruction = self._build_context_instruction(
+                f"{extracted_content}\n{user_message}" if extracted_content else user_message, 
+                chemistry_context
+            )
+            
+            # Send to Gemini with extracted content and image
+            response = self.model.generate_content([
+                context_instruction, 
+                f"{extracted_content}\n{user_message}" if extracted_content else user_message, 
+                img
+            ])
             
             return response.text
         

@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from brain import get_brain
 from mistral_brain import get_mistral_brain
+from groq_brain import get_groq_brain
 from ollama_brain import get_ollama_brain
 from user_store import (
     init_user_store,
@@ -64,8 +65,15 @@ if "calc_expr" not in st.session_state:
     st.session_state.calc_expr = ""
 if "calc_error" not in st.session_state:
     st.session_state.calc_error = ""
+if "message_just_sent" not in st.session_state:
+    st.session_state.message_just_sent = False
 
 init_user_store()
+
+# Clear chat input if message was just sent
+if st.session_state.message_just_sent:
+    st.session_state.chat_draft_input = ""
+    st.session_state.message_just_sent = False
 
 
 def append_to_draft(token: str) -> None:
@@ -394,6 +402,7 @@ with col_chat:
     with clear_col:
         if st.button("Xoá", key="clear_draft_btn", use_container_width=True):
             st.session_state.chat_draft_input = ""
+            st.rerun()
     prompt = st.session_state.chat_draft_input.strip() if send_clicked else None
 
 if quick_prompt:
@@ -501,7 +510,8 @@ if prompt:
             except Exception as e:
                 st.error(f"❌ Lỗi: {str(e)}")
         
-        st.session_state.chat_draft_input = ""
+        # Set flag to clear input on next render
+        st.session_state.message_just_sent = True
         st.rerun()
 
 # ============================================================================
