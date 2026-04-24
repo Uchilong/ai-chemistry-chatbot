@@ -19,7 +19,8 @@ from ollama_brain import get_ollama_brain
 from config import (
     GEMINI_API_KEY, MISTRAL_API_KEY, APP_TITLE, APP_ICON,
     SUPPORTED_FILE_TYPES, FILE_UPLOAD_LABEL, FILE_UPLOAD_HELP,
-    CHAT_INPUT_PLACEHOLDER, MODEL_CONFIGS, validate_config
+    CHAT_INPUT_PLACEHOLDER, MODEL_CONFIGS, validate_config,
+    UI_THEME_MODE, DEFAULT_CHEMISTRY_LEVEL, DEFAULT_RESPONSE_STYLE
 )
 
 # ============================================================================
@@ -39,6 +40,10 @@ if "history" not in st.session_state:
     st.session_state.history = []
 if "selected_model" not in st.session_state:
     st.session_state.selected_model = "Mistral (Fast)"
+if "chemistry_level" not in st.session_state:
+    st.session_state.chemistry_level = DEFAULT_CHEMISTRY_LEVEL
+if "response_style" not in st.session_state:
+    st.session_state.response_style = DEFAULT_RESPONSE_STYLE
 
 # ============================================================================
 # 2. INITIALIZE AI BRAINS
@@ -92,7 +97,22 @@ brain = brains.get(st.session_state.selected_model)
 # ============================================================================
 # 3. CUSTOM CSS STYLING
 # ============================================================================
-st.markdown("""
+theme_base = st.get_option("theme.base") or "light"
+resolved_theme = UI_THEME_MODE if UI_THEME_MODE in {"light", "dark"} else theme_base
+if resolved_theme == "dark":
+    chat_bg = "#111827"
+    chat_text = "#f3f4f6"
+    chat_border = "#374151"
+    code_bg = "#1f2937"
+    code_text = "#f3f4f6"
+else:
+    chat_bg = "#ffffff"
+    chat_text = "#111827"
+    chat_border = "#e6e8ee"
+    code_bg = "#f3f4f6"
+    code_text = "#111827"
+
+st.markdown(f"""
     <style>
     /* Gemini-like clean layout */
     .block-container {
@@ -120,8 +140,31 @@ st.markdown("""
     .stChatMessage {
         border-radius: 16px;
         padding: 12px 14px;
-        border: 1px solid #e6e8ee;
-        background-color: #ffffff;
+        border: 1px solid {chat_border};
+        background-color: {chat_bg};
+        color: {chat_text} !important;
+    }
+
+    .stChatMessage p,
+    .stChatMessage li,
+    .stChatMessage span,
+    .stChatMessage div,
+    .stChatMessage label {
+        color: {chat_text} !important;
+    }
+
+    .stChatMessage code {
+        color: {code_text} !important;
+        background-color: {code_bg} !important;
+    }
+
+    .stChatMessage pre {
+        color: #e5e7eb !important;
+        background-color: #111827 !important;
+    }
+
+    .stMarkdown p, .stMarkdown li {
+        color: inherit;
     }
 
     [data-testid="stSidebar"] {
@@ -154,6 +197,23 @@ with st.sidebar:
         st.session_state.selected_model = selected
         st.session_state.messages = []
         st.rerun()
+
+    st.markdown("---")
+    st.subheader("🎯 Learning Controls")
+    st.session_state.chemistry_level = st.selectbox(
+        "Chemistry level",
+        options=["highschool", "undergrad", "mixed"],
+        index=["highschool", "undergrad", "mixed"].index(st.session_state.chemistry_level)
+        if st.session_state.chemistry_level in {"highschool", "undergrad", "mixed"} else 1,
+        help="Controls depth and complexity of chemistry explanations."
+    )
+    st.session_state.response_style = st.selectbox(
+        "Response style",
+        options=["concise", "balanced", "detailed"],
+        index=["concise", "balanced", "detailed"].index(st.session_state.response_style)
+        if st.session_state.response_style in {"concise", "balanced", "detailed"} else 1,
+        help="Controls answer length and detail level."
+    )
     
     # Chat Management
     col1, col2 = st.columns(2)
@@ -276,9 +336,23 @@ if prompt:
                 if image_data:
                     # Use appropriate method based on model
                     if st.session_state.selected_model == "Gemini (Accurate)":
-                        ai_response = brain.chat_with_file(prompt, image_data)
+                        ai_response = brain.chat_with_file(
+                            prompt,
+                            image_data,
+                            chemistry_context={
+                                "level": st.session_state.chemistry_level,
+                                "style": st.session_state.response_style
+                            }
+                        )
                     elif st.session_state.selected_model == "Mistral (Fast)":
-                        ai_response = brain.chat_with_file(prompt, image_data)
+                        ai_response = brain.chat_with_file(
+                            prompt,
+                            image_data,
+                            chemistry_context={
+                                "level": st.session_state.chemistry_level,
+                                "style": st.session_state.response_style
+                            }
+                        )
                     else:  # Ollama
                         ai_response = "⚠️ File analysis requires Gemini or Mistral API"
                     
@@ -289,7 +363,14 @@ if prompt:
                         pass
                 else:
                     # Text only
-                    ai_response = brain.chat(prompt, chat_history=st.session_state.messages[:-1])
+                    ai_response = brain.chat(
+                        prompt,
+                        chat_history=st.session_state.messages[:-1],
+                        chemistry_context={
+                            "level": st.session_state.chemistry_level,
+                            "style": st.session_state.response_style
+                        }
+                    )
                 
                 st.session_state.messages.append({
                     "role": "assistant",

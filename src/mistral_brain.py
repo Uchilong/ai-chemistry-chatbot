@@ -1,6 +1,8 @@
 import os
-from typing import Optional
+from typing import Optional, Dict
 from pathlib import Path
+from chemistry_tools import build_solver_hints
+from chemistry_kb import retrieve_snippets
 
 try:
     # mistralai<2 exposed the client at top-level
@@ -65,6 +67,47 @@ Always:
 - Organize your responses clearly with headings and bullet points when appropriate
 - When uncertain, explain your reasoning and limitations"""
 
+    def _build_context_instruction(
+        self,
+        user_message: str,
+        chemistry_context: Optional[Dict[str, str]] = None
+    ) -> str:
+        context = chemistry_context or {}
+        level = context.get("level", "undergrad")
+        style = context.get("style", "balanced")
+        hints = build_solver_hints(user_message)
+        snippets = retrieve_snippets(user_message, top_k=2)
+
+        level_map = {
+            "highschool": "Use high-school level explanations.",
+            "undergrad": "Use undergraduate-level chemistry depth.",
+            "mixed": "Provide layered explanation from intuitive to technical."
+        }
+        style_map = {
+            "concise": "Be concise while preserving equations and units.",
+            "balanced": "Balance detail and speed.",
+            "detailed": "Show full derivation and checks."
+        }
+        citation_hint = "Cite reference snippets as [ref:id] when using retrieved knowledge."
+
+        lines = [
+            "Chemistry response contract:",
+            "1) Identify task type and givens",
+            "2) Balance reaction when relevant",
+            "3) Show unit-safe steps",
+            "4) Check sig figs and units in final answer",
+            f"Audience level: {level}. {level_map.get(level, level_map['undergrad'])}",
+            f"Style: {style}. {style_map.get(style, style_map['balanced'])}",
+            citation_hint,
+            "Deterministic hints:",
+            *[f"- {h}" for h in hints],
+        ]
+        if snippets:
+            lines.append("Retrieved references:")
+            for s in snippets:
+                lines.append(f"- [ref:{s['id']}] {s['content']} (source: {s['source']})")
+        return "\n".join(lines)
+
     @staticmethod
     def _format_error(prefix: str, error: Exception) -> str:
         """Return a user-friendly API error message."""
@@ -77,7 +120,12 @@ Always:
             )
         return f"{prefix}: {message}"
 
-    def chat(self, user_message: str, chat_history: Optional[list] = None) -> str:
+    def chat(
+        self,
+        user_message: str,
+        chat_history: Optional[list] = None,
+        chemistry_context: Optional[Dict[str, str]] = None
+    ) -> str:
         """
         Send a text message and get AI response.
 
@@ -102,7 +150,13 @@ Always:
                     messages.append({"role": role, "content": content})
 
             # Add current message
-            messages.append({"role": "user", "content": user_message})
+            context_instruction = self._build_context_instruction(user_message, chemistry_context)
+            messages.append(
+                {
+                    "role": "user",
+                    "content": f"{context_instruction}\n\nUser question:\n{user_message}"
+                }
+            )
 
             # Get response from Mistral (v1.x API)
             response = self.client.chat.complete(
@@ -125,7 +179,8 @@ Always:
         self,
         user_message: str,
         image_path: str,
-        chat_history: Optional[list] = None
+        chat_history: Optional[list] = None,
+        chemistry_context: Optional[Dict[str, str]] = None
     ) -> str:
         """
         Mistral vision API is limited. Return a message about text-based use.
@@ -144,7 +199,8 @@ Always:
         self,
         user_message: str,
         file_path: str,
-        chat_history: Optional[list] = None
+        chat_history: Optional[list] = None,
+        chemistry_context: Optional[Dict[str, str]] = None
     ) -> str:
         """
         Handle file input — images are unsupported; text/PDF content is extracted and sent as text.
@@ -163,13 +219,13 @@ Always:
         file_ext = Path(file_path).suffix.lower()
 
         if file_ext in [".jpg", ".jpeg", ".png", ".gif", ".webp"]:
-            return self.chat_with_image(user_message, file_path, chat_history)
+            return self.chat_with_image(user_message, file_path, chat_history, chemistry_context)
 
         elif file_ext == ".txt":
-            return self._handle_text_file(user_message, file_path, chat_history)
+            return self._handle_text_file(user_message, file_path, chat_history, chemistry_context)
 
         elif file_ext == ".pdf":
-            return self._handle_pdf_file(user_message, file_path, chat_history)
+            return self._handle_pdf_file(user_message, file_path, chat_history, chemistry_context)
 
         else:
             return f"Error: Unsupported file type {file_ext}. Supported: jpg, png, gif, webp, txt, pdf"
@@ -178,7 +234,8 @@ Always:
         self,
         user_message: str,
         file_path: str,
-        chat_history: Optional[list] = None
+        chat_history: Optional[list] = None,
+        chemistry_context: Optional[Dict[str, str]] = None
     ) -> str:
         """Handle text file analysis."""
         try:
@@ -193,7 +250,7 @@ Always:
                 f"File content:\n---\n{content}\n---\n\n{user_message}"
             )
 
-            return self.chat(enhanced_message, chat_history)
+            return self.chat(enhanced_message, chat_history, chemistry_context)
 
         except Exception as e:
             return self._format_error("Error reading text file", e)
@@ -202,7 +259,8 @@ Always:
         self,
         user_message: str,
         file_path: str,
-        chat_history: Optional[list] = None
+        chat_history: Optional[list] = None,
+        chemistry_context: Optional[Dict[str, str]] = None
     ) -> str:
         """Handle PDF file analysis."""
         try:
@@ -224,7 +282,7 @@ Always:
                 f"PDF content:\n---\n{content}\n---\n\n{user_message}"
             )
 
-            return self.chat(enhanced_message, chat_history)
+            return self.chat(enhanced_message, chat_history, chemistry_context)
 
         except Exception as e:
             return self._format_error("Error reading PDF file", e)

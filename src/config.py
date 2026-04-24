@@ -63,6 +63,9 @@ SUPPORTED_FILE_TYPES = SUPPORTED_IMAGE_TYPES + ["pdf", "txt"]
 CHAT_INPUT_PLACEHOLDER = "Nhập câu hỏi hóa học..."
 FILE_UPLOAD_LABEL = "Tải tệp hoặc Dán ảnh (Ctrl+V) tại đây"
 FILE_UPLOAD_HELP = "Hỗ trợ: jpg, png, gif, pdf, txt. Bạn có thể dán ảnh bằng Ctrl+V"
+UI_THEME_MODE = os.getenv("UI_THEME_MODE", "auto").lower()  # auto, light, dark
+DEFAULT_CHEMISTRY_LEVEL = os.getenv("DEFAULT_CHEMISTRY_LEVEL", "undergrad")
+DEFAULT_RESPONSE_STYLE = os.getenv("DEFAULT_RESPONSE_STYLE", "balanced")
 
 # Validation
 def validate_config():

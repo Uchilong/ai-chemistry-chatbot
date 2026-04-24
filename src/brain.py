@@ -1,8 +1,10 @@
 import os
-from typing import Optional
+from typing import Optional, Dict
 import google.generativeai as genai
 from pathlib import Path
 from PIL import Image
+from chemistry_tools import build_solver_hints
+from chemistry_kb import retrieve_snippets
 
 # Import config for API key and settings
 try:
@@ -58,6 +60,52 @@ Always:
             system_instruction=self.system_prompt
         )
 
+    def _build_context_instruction(
+        self,
+        user_message: str,
+        chemistry_context: Optional[Dict[str, str]] = None
+    ) -> str:
+        """Build specialization context that is prepended to each question."""
+        context = chemistry_context or {}
+        level = context.get("level", "undergrad")
+        style = context.get("style", "balanced")
+        hints = build_solver_hints(user_message)
+        snippets = retrieve_snippets(user_message, top_k=2)
+
+        task_contract = (
+            "Follow this chemistry response contract strictly:\n"
+            "1) Identify task type and list givens.\n"
+            "2) Show balanced equation when relevant.\n"
+            "3) Show formulas used and unit-aware calculations.\n"
+            "4) Validate units and significant figures.\n"
+            "5) Provide a concise final answer section.\n"
+        )
+        level_map = {
+            "highschool": "Use high-school level vocabulary and avoid advanced quantum detail.",
+            "undergrad": "Use undergraduate-level depth and include mechanism/thermo nuance when relevant.",
+            "mixed": "Adapt depth dynamically and provide both intuitive and technical explanation."
+        }
+        style_map = {
+            "concise": "Keep answer short but still include required equations and units.",
+            "balanced": "Balance brevity and depth.",
+            "detailed": "Provide full derivation and explain each step."
+        }
+
+        snippet_lines = []
+        for s in snippets:
+            snippet_lines.append(f"- [{s['id']}] {s['content']} (source: {s['source']})")
+
+        parts = [
+            task_contract,
+            f"Audience level: {level}. {level_map.get(level, level_map['undergrad'])}",
+            f"Answer style: {style}. {style_map.get(style, style_map['balanced'])}",
+            "Deterministic chemistry hints:",
+            *[f"- {h}" for h in hints],
+        ]
+        if snippet_lines:
+            parts.extend(["Retrieved chemistry references:", *snippet_lines])
+        return "\n".join(parts)
+
     @staticmethod
     def _format_error(prefix: str, error: Exception) -> str:
         """Return a user-friendly API error message."""
@@ -70,7 +118,12 @@ Always:
             )
         return f"{prefix}: {message}"
 
-    def chat(self, user_message: str, chat_history: Optional[list] = None) -> str:
+    def chat(
+        self,
+        user_message: str,
+        chat_history: Optional[list] = None,
+        chemistry_context: Optional[Dict[str, str]] = None
+    ) -> str:
         """
         Send a text message and get AI response.
         
@@ -99,8 +152,11 @@ Always:
                     history_for_api.append({"role": role, "parts": [msg.get("content", "")]})
                 chat_session.history = history_for_api
 
+            context_instruction = self._build_context_instruction(user_message, chemistry_context)
+            enhanced_message = f"{context_instruction}\n\nUser question:\n{user_message}"
+
             # Get response from Gemini
-            response = chat_session.send_message(user_message)
+            response = chat_session.send_message(enhanced_message)
             
             return response.text
         
@@ -111,7 +167,8 @@ Always:
         self, 
         user_message: str, 
         image_path: str, 
-        chat_history: Optional[list] = None
+        chat_history: Optional[list] = None,
+        chemistry_context: Optional[Dict[str, str]] = None
     ) -> str:
         """
         Send a message with an image and get AI response.
@@ -134,7 +191,8 @@ Always:
             # Send to Gemini with image
             # The system prompt is already part of the model configuration
             # We can send the user message and image as a list of parts
-            response = self.model.generate_content([user_message, img])
+            context_instruction = self._build_context_instruction(user_message, chemistry_context)
+            response = self.model.generate_content([context_instruction, user_message, img])
             
             return response.text
         
@@ -212,7 +270,8 @@ Format your answer with:
         self,
         user_message: str,
         file_path: str,
-        chat_history: Optional[list] = None
+        chat_history: Optional[list] = None,
+        chemistry_context: Optional[Dict[str, str]] = None
     ) -> str:
         """
         Send a message with a file (image, PDF, or text) and get AI response.
@@ -233,15 +292,15 @@ Format your answer with:
             
             # Handle images
             if file_ext in [".jpg", ".jpeg", ".png", ".gif", ".webp"]:
-                return self.chat_with_image(user_message, file_path, chat_history)
+                return self.chat_with_image(user_message, file_path, chat_history, chemistry_context)
             
             # Handle text files
             elif file_ext in [".txt"]:
-                return self._handle_text_file(user_message, file_path, chat_history)
+                return self._handle_text_file(user_message, file_path, chat_history, chemistry_context)
             
             # Handle PDF files
             elif file_ext == ".pdf":
-                return self._handle_pdf_file(user_message, file_path, chat_history)
+                return self._handle_pdf_file(user_message, file_path, chat_history, chemistry_context)
             
             else:
                 return f"Error: Unsupported file type {file_ext}. Supported: jpg, png, gif, webp, txt, pdf"
@@ -253,7 +312,8 @@ Format your answer with:
         self,
         user_message: str,
         file_path: str,
-        chat_history: Optional[list] = None
+        chat_history: Optional[list] = None,
+        chemistry_context: Optional[Dict[str, str]] = None
     ) -> str:
         """Handle text file analysis."""
         try:
@@ -266,7 +326,7 @@ Format your answer with:
             
             enhanced_message = f"I'm sharing a text file '{Path(file_path).name}' for analysis.\n\nFile content:\n---\n{content}\n---\n\n{user_message}"
             
-            return self.chat(enhanced_message, chat_history)
+            return self.chat(enhanced_message, chat_history, chemistry_context)
         
         except Exception as e:
             return self._format_error("Error reading text file", e)
@@ -275,7 +335,8 @@ Format your answer with:
         self,
         user_message: str,
         file_path: str,
-        chat_history: Optional[list] = None
+        chat_history: Optional[list] = None,
+        chemistry_context: Optional[Dict[str, str]] = None
     ) -> str:
         """Handle PDF file analysis."""
         # Use Gemini's native file processing API for better results
@@ -286,7 +347,9 @@ Format your answer with:
             print(f"File uploaded successfully: {pdf_file.name}")
 
             # Create a prompt that includes the file
+            context_instruction = self._build_context_instruction(user_message, chemistry_context)
             prompt = [
+                context_instruction,
                 f"The user has uploaded the file '{pdf_file.display_name}'. Please analyze it and answer the following question.",
                 pdf_file,
                 user_message
