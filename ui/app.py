@@ -39,7 +39,7 @@ from config import (
 # 1. PAGE CONFIGURATION
 # ============================================================================
 st.set_page_config(
-    page_title="🧪 AI Chemistry Tutor",
+    page_title="🧪 Gia Sư Hóa Học AI",
     page_icon="🧪",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -106,11 +106,11 @@ except Exception:
 # Validate configuration
 if not available_models:
     st.error(
-        "❌ **No AI Models Available**\n\n"
-        "Please configure at least one API:\n"
+        "❌ **Không Có Mô Hình AI Nào**\n\n"
+        "Vui lòng cấu hình ít nhất một API:\n"
         "- **Gemini**: https://aistudio.google.com/app/apikey\n"
         "- **Mistral**: https://console.mistral.ai/api-keys/\n\n"
-        "Set them in your `.env` file as `GEMINI_API_KEY` and `MISTRAL_API_KEY`"
+        "Thêm chúng vào tệp `.env` với tên `GEMINI_API_KEY` và `MISTRAL_API_KEY`"
     )
     st.stop()
 
@@ -215,16 +215,16 @@ st.markdown(css, unsafe_allow_html=True)
 # 4. SIDEBAR - MODEL SELECTION & HISTORY
 # ============================================================================
 with st.sidebar:
-    st.title("🧪 Chemistry AI")
+    st.title("🧪 Hóa Học AI")
     
     # Model Selection
     st.markdown("---")
-    st.subheader("🤖 Select AI Model")
+    st.subheader("🤖 Chọn Mô Hình AI")
     
     cols = st.columns([0.8, 0.2])
     with cols[0]:
         selected = st.radio(
-            "Model:",
+            "Mô hình:",
             options=list(available_models.keys()),
             index=list(available_models.keys()).index(st.session_state.selected_model) 
                   if st.session_state.selected_model in available_models else 0,
@@ -237,14 +237,14 @@ with st.sidebar:
         st.rerun()
 
     st.markdown("---")
-    st.subheader("👤 Account")
+    st.subheader("👤 Tài Khoản")
     if not st.session_state.user_id:
         email_input = st.text_input(
-            "Sign in with Google email",
-            placeholder="yourname@gmail.com",
+            "Đăng nhập bằng Gmail",
+            placeholder="tenban@gmail.com",
             key="login_email_input"
         )
-        if st.button("Sign In", use_container_width=True):
+        if st.button("Đăng Nhập", use_container_width=True):
             if email_input and "@" in email_input:
                 user_id = get_or_create_user(email_input)
                 st.session_state.user_id = user_id
@@ -252,13 +252,13 @@ with st.sidebar:
                 st.session_state.messages = load_chat_events(user_id)
                 st.session_state.history = load_questions(user_id)
                 st.session_state.learning_resources = load_learning_resources(user_id)
-                st.success("Signed in and progress loaded.")
+                st.success("Đăng nhập thành công và đã tải tiến trình.")
                 st.rerun()
             else:
-                st.error("Please enter a valid email.")
+                st.error("Vui lòng nhập email hợp lệ.")
     else:
-        st.caption(f"Signed in as: {st.session_state.user_email}")
-        if st.button("Sign Out", use_container_width=True):
+        st.caption(f"Đã đăng nhập: {st.session_state.user_email}")
+        if st.button("Đăng Xuất", use_container_width=True):
             st.session_state.user_id = None
             st.session_state.user_email = ""
             st.session_state.messages = []
@@ -269,40 +269,39 @@ with st.sidebar:
     # Chat Management
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("➕ New Chat", use_container_width=True):
+        if st.button("➕ Chat Mới", use_container_width=True):
             st.session_state.messages = []
             st.session_state.history = []
             st.rerun()
-    
     with col2:
         st.link_button(
             "⌨️ ChemKey",
             "https://educat.ninja/chemkey/",
             use_container_width=True,
-            help="Open online chemistry symbol keyboard in a new tab"
+            help="Mở bàn phím ký hiệu hóa học trực tuyến trong tab mới"
         )
     st.link_button(
-        "🧮 Scientific Calculator",
+        "🧮 Máy Tính Khoa Học",
         "https://mathda.com/calculator/vi",
         use_container_width=True,
-        help="Open external scientific calculator (MathDA)"
+        help="Mở máy tính khoa học ngoài (MathDA)"
     )
-    
+
     st.markdown("---")
 
-    with st.expander("📚 Learning Resources", expanded=False):
+    with st.expander("📚 Tài Liệu Học Tập", expanded=False):
         if st.session_state.user_id:
-            title = st.text_input("Title", key="resource_title")
-            link = st.text_input("Link", key="resource_link", placeholder="https://...")
-            notes = st.text_area("Notes (optional)", key="resource_notes", height=80)
-            if st.button("Save Resource", use_container_width=True):
+            title = st.text_input("Tiêu đề", key="resource_title")
+            link = st.text_input("Đường dẫn", key="resource_link", placeholder="https://...")
+            notes = st.text_area("Ghi chú (tuỳ chọn)", key="resource_notes", height=80)
+            if st.button("Lưu Tài Liệu", use_container_width=True):
                 if title.strip() and link.strip():
                     add_learning_resource(st.session_state.user_id, title, link, notes)
                     st.session_state.learning_resources = load_learning_resources(st.session_state.user_id)
-                    st.success("Resource saved.")
+                    st.success("Đã lưu tài liệu.")
                     st.rerun()
                 else:
-                    st.error("Title and link are required.")
+                    st.error("Tiêu đề và đường dẫn là bắt buộc.")
 
             if st.session_state.learning_resources:
                 for resource in st.session_state.learning_resources:
@@ -310,18 +309,18 @@ with st.sidebar:
                     st.markdown(f"[{resource['link']}]({resource['link']})")
                     if resource["notes"]:
                         st.caption(resource["notes"])
-                    if st.button("Delete", key=f"del_res_{resource['id']}", use_container_width=True):
+                    if st.button("Xoá", key=f"del_res_{resource['id']}", use_container_width=True):
                         delete_learning_resource(st.session_state.user_id, resource["id"])
                         st.session_state.learning_resources = load_learning_resources(st.session_state.user_id)
                         st.rerun()
                     st.markdown("---")
             else:
-                st.info("No saved resources yet.")
+                st.info("Chưa có tài liệu nào được lưu.")
         else:
-            st.info("Sign in to save learning resources.")
+            st.info("Đăng nhập để lưu tài liệu học tập.")
     
     # Chat History
-    with st.expander("🕰️ Question History", expanded=False):
+    with st.expander("🕰️ Lịch Sử Câu Hỏi", expanded=False):
         if st.session_state.history:
             for i, q in enumerate(reversed(st.session_state.history[-20:])):
                 if st.button(
@@ -332,7 +331,7 @@ with st.sidebar:
                     st.session_state.chem_input_value = q
                     st.rerun()
         else:
-            st.info("No history yet")
+            st.info("Chưa có lịch sử nào")
 
 # ============================================================================
 # 5. MAIN CHAT DISPLAY
@@ -340,29 +339,14 @@ with st.sidebar:
 st.markdown(
     f"""
     <div class="app-header">
-        <h1>{APP_ICON} Chemistry AI</h1>
+        <h1>{APP_ICON} Hóa Học AI</h1>
         <p>{st.session_state.selected_model}</p>
     </div>
     """,
     unsafe_allow_html=True
 )
 
-# Contest-ready quick chemistry tasks
 quick_prompt = None
-st.markdown("### Quick Solve Modes")
-q1, q2, q3, q4 = st.columns(4)
-with q1:
-    if st.button("Balance Reaction", use_container_width=True):
-        quick_prompt = "Balance this reaction and verify atom counts: Fe + O2 -> Fe2O3"
-with q2:
-    if st.button("Stoichiometry", use_container_width=True):
-        quick_prompt = "How many grams of NaCl can be formed from 2 mol Na with excess Cl2? Show every step."
-with q3:
-    if st.button("Molar Mass", use_container_width=True):
-        quick_prompt = "Calculate the molar mass of Ca(OH)2 and show atomic mass contributions."
-with q4:
-    if st.button("Acid/Base pH", use_container_width=True):
-        quick_prompt = "If [H+] = 1.0e-4 M, calculate pH and provide a quick check."
 
 # Display messages
 for message in st.session_state.messages:
@@ -378,115 +362,13 @@ for message in st.session_state.messages:
 # ============================================================================
 st.markdown("---")
 
-with st.expander("Math Input Tools", expanded=False):
-    st.link_button(
-        "Open Scientific Calculator (MathDA)",
-        "https://mathda.com/calculator/vi",
-        use_container_width=False
-    )
-    tab_pop, tab_trig, tab_calc, tab_cmp, tab_greek, tab_calcpad = st.tabs(
-        ["Popular", "Trig", "Calculus", "Comparisons", "Greek", "Calculator"]
-    )
-
-    with tab_pop:
-        pop_tokens = ["→", "⇌", "Δ", "hν", "H₂O", "CO₂", "OH⁻", "H⁺", "NaCl", "=", "+", "-", "×", "÷", "π"]
-        pop_cols = st.columns(5)
-        for i, token in enumerate(pop_tokens):
-            with pop_cols[i % 5]:
-                if st.button(token, key=f"pop_tok_{i}", use_container_width=True):
-                    append_to_draft(token)
-
-    with tab_trig:
-        trig_tokens = ["sin(", "cos(", "tan(", "csc(", "sec(", "cot(", "arcsin(", "arccos(", "arctan(", ")", "pi", "e"]
-        trig_cols = st.columns(6)
-        for i, token in enumerate(trig_tokens):
-            with trig_cols[i % 6]:
-                if st.button(token, key=f"trig_tok_{i}", use_container_width=True):
-                    append_to_draft(token)
-
-    with tab_calc:
-        calc_tokens = ["d/dx", "∫", "∂", "∇", "lim", "Σ", "Π", "∞", "√(", "x²", "x⁻¹", "| |"]
-        calc_cols = st.columns(6)
-        for i, token in enumerate(calc_tokens):
-            with calc_cols[i % 6]:
-                if st.button(token, key=f"calc_tok_{i}", use_container_width=True):
-                    append_to_draft(token)
-
-    with tab_cmp:
-        cmp_tokens = [">", "<", "=", "≥", "≤", "≠", "±", "≈", "∝", "∈", "∉", "↔", "→", "←"]
-        cmp_cols = st.columns(7)
-        for i, token in enumerate(cmp_tokens):
-            with cmp_cols[i % 7]:
-                if st.button(token, key=f"cmp_tok_{i}", use_container_width=True):
-                    append_to_draft(token)
-
-    with tab_greek:
-        greek_tokens = ["α", "β", "γ", "δ", "ε", "ζ", "η", "θ", "λ", "μ", "ν", "ρ", "σ", "τ", "φ", "χ", "ω"]
-        greek_cols = st.columns(9)
-        for i, token in enumerate(greek_tokens):
-            with greek_cols[i % 9]:
-                if st.button(token, key=f"gr_tok_{i}", use_container_width=True):
-                    append_to_draft(token)
-
-    with tab_calcpad:
-        st.text_input("Expression", key="calc_expr", placeholder="e.g. (2+3)*sqrt(16)")
-        k1 = st.columns(5)
-        for i, token in enumerate(["7", "8", "9", "/", "("]):
-            with k1[i]:
-                if st.button(token, key=f"kp1_{token}", use_container_width=True):
-                    append_to_calc(token)
-        k2 = st.columns(5)
-        for i, token in enumerate(["4", "5", "6", "*", ")"]):
-            with k2[i]:
-                if st.button(token, key=f"kp2_{token}", use_container_width=True):
-                    append_to_calc(token)
-        k3 = st.columns(5)
-        for i, token in enumerate(["1", "2", "3", "-", "^"]):
-            with k3[i]:
-                if st.button(token, key=f"kp3_{token}", use_container_width=True):
-                    append_to_calc(token)
-        k4 = st.columns(5)
-        for i, token in enumerate(["0", ".", "pi", "+", "sqrt("]):
-            with k4[i]:
-                if st.button(token, key=f"kp4_{token}", use_container_width=True):
-                    append_to_calc(token)
-        k5 = st.columns(5)
-        with k5[0]:
-            if st.button("⌫", key="kp_backspace", use_container_width=True):
-                st.session_state.calc_expr = st.session_state.calc_expr[:-1]
-        with k5[1]:
-            if st.button("Clear", key="kp_clear", use_container_width=True):
-                st.session_state.calc_expr = ""
-                st.session_state.calc_error = ""
-        with k5[2]:
-            if st.button("Result → Draft", key="kp_eval_append", use_container_width=True):
-                try:
-                    result = evaluate_expression(st.session_state.calc_expr)
-                    append_to_draft(str(result))
-                    st.session_state.calc_error = ""
-                except Exception as exc:
-                    st.session_state.calc_error = f"Calculator error: {exc}"
-        with k5[3]:
-            if st.button("Expr=Res → Draft", key="kp_eval_expr", use_container_width=True):
-                try:
-                    result = evaluate_expression(st.session_state.calc_expr)
-                    append_to_draft(f"{st.session_state.calc_expr} = {result}")
-                    st.session_state.calc_error = ""
-                except Exception as exc:
-                    st.session_state.calc_error = f"Calculator error: {exc}"
-        with k5[4]:
-            if st.button("e", key="kp_e", use_container_width=True):
-                append_to_calc("e")
-        if st.session_state.calc_error:
-            st.error(st.session_state.calc_error)
-
 # File upload
 uploaded_file = None
 col_file, col_chat = st.columns([0.15, 0.85])
 
 with col_file:
-    with st.popover("📎 Upload"):
-        st.markdown("### 📤 Upload File")
+    with st.popover("📎 Tải lên"):
+        st.markdown("### 📤 Tải Lên Tệp")
         uploaded_file = st.file_uploader(
             FILE_UPLOAD_LABEL,
             type=SUPPORTED_FILE_TYPES,
@@ -495,12 +377,12 @@ with col_file:
         )
         if uploaded_file:
             st.success(f"✅ {uploaded_file.name}")
-            st.caption(f"Size: {uploaded_file.size / 1024:.1f} KB")
+            st.caption(f"Kích thước: {uploaded_file.size / 1024:.1f} KB")
 
 # Chat input
 with col_chat:
     st.text_area(
-        "Message",
+        "Tin nhắn",
         key="chat_draft_input",
         height=90,
         label_visibility="collapsed",
@@ -508,9 +390,9 @@ with col_chat:
     )
     send_col, clear_col = st.columns([0.8, 0.2])
     with send_col:
-        send_clicked = st.button("Send", key="send_draft_btn", use_container_width=True)
+        send_clicked = st.button("Gửi", key="send_draft_btn", use_container_width=True)
     with clear_col:
-        if st.button("Clear", key="clear_draft_btn", use_container_width=True):
+        if st.button("Xoá", key="clear_draft_btn", use_container_width=True):
             st.session_state.chat_draft_input = ""
     prompt = st.session_state.chat_draft_input.strip() if send_clicked else None
 
@@ -522,7 +404,7 @@ if quick_prompt:
 # ============================================================================
 if prompt:
     if not brain:
-        st.error(f"❌ {st.session_state.selected_model} is not available")
+        st.error(f"❌ {st.session_state.selected_model} không khả dụng")
     else:
         # Prepare message
         new_message = {"role": "user", "content": prompt}
@@ -564,7 +446,7 @@ if prompt:
             )
         
         # Get AI response
-        with st.spinner(f"🤖 {st.session_state.selected_model} is thinking..."):
+        with st.spinner(f"🤖 {st.session_state.selected_model} đang xử lý..."):
             try:
                 if image_data:
                     # Use appropriate method based on model
@@ -587,7 +469,7 @@ if prompt:
                             }
                         )
                     else:  # Ollama
-                        ai_response = "⚠️ File analysis requires Gemini or Mistral API"
+                        ai_response = "⚠️ Phân tích tệp yêu cầu Gemini hoặc Mistral API"
                     
                     # Cleanup
                     try:
@@ -617,7 +499,7 @@ if prompt:
                     )
                 
             except Exception as e:
-                st.error(f"❌ Error: {str(e)}")
+                st.error(f"❌ Lỗi: {str(e)}")
         
         st.session_state.chat_draft_input = ""
         st.rerun()
@@ -629,7 +511,7 @@ st.markdown("---")
 st.markdown("""
     <div style="text-align: center; color: #666;">
     <small>
-    🧪 AI Chemistry Tutor | Multi-Model Support | Fast & Accurate Learning
+    🧪 Gia Sư Hóa Học AI | Hỗ Trợ Đa Mô Hình | Học Tập Nhanh & Chính Xác
     </small>
     </div>
     """, unsafe_allow_html=True)

@@ -6,3 +6,10 @@ requests
 mistralai
 PyPDF2
 pydantic
+# Backend dependencies
+fastapi
+uvicorn
+pubchempy
+python-multipart
+# Free OCR alternatives
+pix2text

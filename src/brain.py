@@ -35,25 +35,62 @@ class ChemistryAIBrain:
         
         genai.configure(api_key=self.api_key)
         
-        self.system_prompt = """You are an expert Chemistry AI tutor specializing in helping students learn chemistry with ACCURACY and DEPTH.
-Your responsibilities:
-- Explain chemistry concepts clearly and comprehensively
-- Solve chemistry problems step-by-step with detailed working
-- Provide molecular structure analysis and predictions
-- Explain chemical reactions and their mechanisms
-- Help with homework and practice problems
-- Provide real-world applications of chemistry concepts
-- Analyze images, diagrams, and uploaded documents
-- Use Vietnamese language when interacting with Vietnamese-speaking students
+        self.system_prompt = """You are an intelligent Chemistry AI Router and Orchestrator for a high school chemistry tutoring system. Your primary role is to analyze student questions and intelligently delegate to specialized chemistry tools, then synthesize their outputs into coherent educational responses.
 
-Always:
-- Be ACCURATE and SCIENTIFICALLY CORRECT above all else
-- Think through complex problems methodically
-- Show all working in calculations
-- Use examples when helpful
-- If you see an image/diagram, analyze it carefully and explain what you observe
-- Organize your responses clearly with headings and bullet points when appropriate
-- When uncertain, explain your reasoning and limitations"""
+## Available Tools
+- **pubchem_tool**: Fetches chemical properties, molar mass, structural information
+- **wolfram_tool**: Balances equations, performs calculations, solves math problems
+- **vision_tool**: Extracts text/equations from images using OCR (Mathpix/Gemini Vision)
+- **media_tool**: Generates educational images and audio content
+
+## Your Workflow
+1. **Analyze** the student's question to identify required tools
+2. **Select** appropriate tools based on question type
+3. **Orchestrate** tool calls in optimal sequence
+4. **Synthesize** tool outputs into educational response
+5. **Explain** results at high school level
+
+## Tool Selection Logic
+- Chemical properties/structures → pubchem_tool
+- Equation balancing/calculations → wolfram_tool  
+- Image analysis/diagrams → vision_tool
+- Visual explanations needed → media_tool
+- Complex problems → Multiple tools in sequence
+
+## Response Format
+Always structure responses with:
+## Question Understanding
+## Tools Used
+## Step-by-Step Solution
+## Key Concepts
+## Practice Problem
+## Summary
+
+## Educational Approach (High School Focus)
+- **Language**: Use Vietnamese when interacting with Vietnamese-speaking students
+- **Vocabulary**: Maintain high school level - avoid quantum mechanics, advanced thermodynamics
+- **Real-world connections**: Link concepts to everyday life (cooking, cleaning, environment)
+- **Scaffolding**: Build from simple to complex, use analogies and examples
+- **Confidence levels**: Indicate certainty for complex problems (High/Medium/Low)
+- **Follow-up activities**: Suggest experiments, practice problems, or further reading
+
+## High School Teaching Strategies
+- **Conceptual first**: Explain "why" before "how"
+- **Visual learning**: Use step-by-step breakdowns with clear formatting
+- **Common misconceptions**: Address typical student errors explicitly
+- **Study tips**: Include memory aids and learning strategies
+- **Assessment prep**: Connect to exam formats and question types
+
+## Response Structure for High School
+1. **Hook**: Relatable example or question to engage interest
+2. **Core concept**: Clear definition with simple explanation  
+3. **Step-by-step**: Worked examples with reasoning
+4. **Common mistakes**: What to avoid and why
+5. **Practice**: Similar problem for student to try
+6. **Connection**: Real-world application or career link
+
+## Error Handling
+If tools fail, provide conceptual explanations and suggest alternative approaches. Always prioritize educational value over perfect technical accuracy. Never leave a student without a learning path."""
 
         self.model = genai.GenerativeModel(
             MODEL_NAME,
@@ -65,38 +102,28 @@ Always:
         user_message: str,
         chemistry_context: Optional[Dict[str, str]] = None
     ) -> str:
-        """Build specialization context that is prepended to each question."""
+        """Build tool orchestration context for each question."""
         context = chemistry_context or {}
-        level = context.get("level", "undergrad")
+        level = context.get("level", "highschool")
         style = context.get("style", "balanced")
         hints = build_solver_hints(user_message)
         snippets = retrieve_snippets(user_message, top_k=2)
 
-        task_contract = (
-            "Follow this chemistry response contract strictly:\n"
-            "Use this exact markdown section order:\n"
-            "## Given\n"
-            "## Formula/Equation\n"
-            "## Steps\n"
-            "## Final Answer (with units)\n"
-            "## Quick Check\n"
-            "## References\n"
-            "## Confidence\n"
-            "Rules:\n"
-            "- Balance equation whenever a reaction appears.\n"
-            "- Include units in all numeric steps and respect significant figures.\n"
-            "- Under References, use bullet points and include [ref:id] when applicable.\n"
-            "- Under Confidence, output one of: High, Medium, Low.\n"
-        )
+        # Tool-specific instructions based on question analysis
+        tool_instructions = self._analyze_and_select_tools(user_message)
+        
+        # Educational level mapping for high school focus
         level_map = {
-            "highschool": "Use high-school level vocabulary and avoid advanced quantum detail.",
-            "undergrad": "Use undergraduate-level depth and include mechanism/thermo nuance when relevant.",
-            "mixed": "Adapt depth dynamically and provide both intuitive and technical explanation."
+            "highschool": "Use high-school level vocabulary. Avoid quantum mechanics. Focus on conceptual understanding.",
+            "undergrad": "Use undergraduate-level depth with mechanisms and thermodynamics.",
+            "mixed": "Provide layered explanation from intuitive to technical."
         }
+        
+        # Response style for educational effectiveness
         style_map = {
-            "concise": "Keep answer short but still include required equations and units.",
-            "balanced": "Balance brevity and depth.",
-            "detailed": "Provide full derivation and explain each step."
+            "concise": "Direct answers with key equations and units.",
+            "balanced": "Mix of explanation and step-by-step solutions.",
+            "detailed": "Full derivations with concept connections."
         }
 
         snippet_lines = []
@@ -104,15 +131,49 @@ Always:
             snippet_lines.append(f"- [{s['id']}] {s['content']} (source: {s['source']})")
 
         parts = [
-            task_contract,
-            f"Audience level: {level}. {level_map.get(level, level_map['undergrad'])}",
-            f"Answer style: {style}. {style_map.get(style, style_map['balanced'])}",
-            "Deterministic chemistry hints:",
+            "## TOOL ORCHESTRATION INSTRUCTIONS",
+            tool_instructions,
+            "",
+            "## EDUCATIONAL CONTEXT",
+            f"Level: {level}. {level_map.get(level, level_map['highschool'])}",
+            f"Style: {style}. {style_map.get(style, style_map['balanced'])}",
+            "",
+            "## CHEMISTRY HINTS",
             *[f"- {h}" for h in hints],
         ]
+        
         if snippet_lines:
-            parts.extend(["Retrieved chemistry references:", *snippet_lines])
+            parts.extend(["", "## KNOWLEDGE REFERENCES", *snippet_lines])
+            
         return "\n".join(parts)
+
+    def _analyze_and_select_tools(self, user_message: str) -> str:
+        """Analyze question and determine which tools to use."""
+        message_lower = user_message.lower()
+        
+        # Tool selection logic
+        tools_needed = []
+        
+        # PubChem tool triggers
+        if any(keyword in message_lower for keyword in ['molar mass', 'properties', 'structure', 'formula', 'element', 'compound']):
+            tools_needed.append("pubchem_tool: Get chemical properties and structural data")
+            
+        # Wolfram tool triggers  
+        if any(keyword in message_lower for keyword in ['balance', 'calculate', 'equation', 'math', 'solve', 'stoichiometry']):
+            tools_needed.append("wolfram_tool: Balance equations and perform calculations")
+            
+        # Vision tool triggers
+        if any(keyword in message_lower for keyword in ['image', 'diagram', 'picture', 'photo', 'ocr', 'read']):
+            tools_needed.append("vision_tool: Extract text/equations from images")
+            
+        # Media tool triggers
+        if any(keyword in message_lower for keyword in ['visualize', 'show', 'image', 'diagram', 'audio']):
+            tools_needed.append("media_tool: Generate educational visuals/audio")
+        
+        if not tools_needed:
+            tools_needed.append("Direct explanation: Use general chemistry knowledge")
+            
+        return "Tools to use:\n" + "\n".join(f"- {tool}" for tool in tools_needed)
 
     @staticmethod
     def _format_error(prefix: str, error: Exception) -> str:
@@ -125,6 +186,56 @@ Always:
                 "Please check that `GEMINI_API_KEY` is set correctly and still valid."
             )
         return f"{prefix}: {message}"
+
+    def _handle_tool_failure(self, tool_name: str, error: Exception, fallback_context: str) -> str:
+        """Handle tool failures with educational fallbacks."""
+        error_message = str(error).lower()
+        
+        # Provide educational fallback based on tool type
+        if "pubchem" in tool_name.lower():
+            return (
+                f"⚠️ **PubChem Tool Unavailable**\n\n"
+                f"Unable to fetch chemical data right now. "
+                f"Here's what I can tell you from general chemistry knowledge:\n\n"
+                f"{fallback_context}\n\n"
+                f"💡 **Tip**: You can look up chemical properties using reliable sources like "
+                f"PubChem directly or your chemistry textbook."
+            )
+        
+        elif "wolfram" in tool_name.lower():
+            return (
+                f"⚠️ **Calculation Tool Unavailable**\n\n"
+                f"Unable to perform calculations right now. "
+                f"Let me guide you through the manual approach:\n\n"
+                f"{fallback_context}\n\n"
+                f"📝 **Manual Steps**: Show your work step-by-step using the formulas we've learned."
+            )
+        
+        elif "vision" in tool_name.lower():
+            return (
+                f"⚠️ **Image Analysis Unavailable**\n\n"
+                f"Cannot process images at the moment. "
+                f"Please describe what you see in the image, and I'll help you analyze it.\n\n"
+                f"📷 **Alternative**: You can type out equations or describe diagrams verbally."
+            )
+        
+        elif "media" in tool_name.lower():
+            return (
+                f"⚠️ **Media Generation Unavailable**\n\n"
+                f"Cannot generate visuals right now. "
+                f"Let me explain the concept using text:\n\n"
+                f"{fallback_context}\n\n"
+                f"🎨 **Visualization Tip**: Try drawing the concept yourself based on the description."
+            )
+        
+        else:
+            return (
+                f"⚠️ **Tool Unavailable**\n\n"
+                f"Experiencing technical difficulties. "
+                f"Here's a conceptual explanation:\n\n"
+                f"{fallback_context}\n\n"
+                f"🔄 **Try Again**: The issue might be temporary. Please retry in a moment."
+            )
 
     def chat(
         self,
