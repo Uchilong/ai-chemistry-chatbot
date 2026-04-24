@@ -16,7 +16,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from brain import get_brain
 from mistral_brain import get_mistral_brain
 from ollama_brain import get_ollama_brain
-from chemistry_keyboard import ChemistryKeyboard
 from config import (
     GEMINI_API_KEY, MISTRAL_API_KEY, APP_TITLE, APP_ICON,
     SUPPORTED_FILE_TYPES, FILE_UPLOAD_LABEL, FILE_UPLOAD_HELP,
@@ -40,10 +39,6 @@ if "history" not in st.session_state:
     st.session_state.history = []
 if "selected_model" not in st.session_state:
     st.session_state.selected_model = "Gemini (Accurate)"
-if "show_keyboard" not in st.session_state:
-    st.session_state.show_keyboard = False
-if "keyboard" not in st.session_state:
-    st.session_state.keyboard = ChemistryKeyboard()
 
 # ============================================================================
 # 2. INITIALIZE AI BRAINS
@@ -181,9 +176,12 @@ with st.sidebar:
             st.rerun()
     
     with col2:
-        if st.button("⌨️ Keyboard", use_container_width=True):
-            st.session_state.show_keyboard = not st.session_state.show_keyboard
-            st.rerun()
+        st.link_button(
+            "⌨️ ChemKey",
+            "https://educat.ninja/chemkey/",
+            use_container_width=True,
+            help="Open online chemistry symbol keyboard in a new tab"
+        )
     
     st.markdown("---")
     
@@ -216,38 +214,7 @@ for message in st.session_state.messages:
             st.caption(f"📁 File: {message['file_name']}")
 
 # ============================================================================
-# 6. CHEMISTRY KEYBOARD (Optional)
-# ============================================================================
-if st.session_state.show_keyboard:
-    st.markdown("---")
-    with st.container(border=True):
-        keyboard_cols = st.columns([0.7, 0.3])
-        
-        with keyboard_cols[0]:
-            st.subheader("⚗️ Chemistry Keyboard")
-            keyboard = st.session_state.keyboard
-            
-            # Quick access symbols
-            st.write("**⚡ Quick Symbols:**")
-            quick_symbols = ["→", "⇌", "H₂O", "CO₂", "H⁺", "OH⁻", "Δ", "hν"]
-            quick_cols = st.columns(len(quick_symbols))
-            
-            for col_idx, symbol in enumerate(quick_symbols):
-                with quick_cols[col_idx]:
-                    if st.button(symbol, use_container_width=True, key=f"quick_{symbol}"):
-                        if "chem_text" not in st.session_state:
-                            st.session_state.chem_text = ""
-                        st.session_state.chem_text += symbol
-        
-        with keyboard_cols[1]:
-            st.write("")
-            st.write("")
-            if st.button("❌ Close", use_container_width=True):
-                st.session_state.show_keyboard = False
-                st.rerun()
-
-# ============================================================================
-# 7. INPUT AREA - FILE UPLOAD & TEXT INPUT
+# 6. INPUT AREA - FILE UPLOAD & TEXT INPUT
 # ============================================================================
 st.markdown("---")
 
@@ -273,7 +240,7 @@ with col_chat:
     prompt = st.chat_input(CHAT_INPUT_PLACEHOLDER, key="main_chat_input")
 
 # ============================================================================
-# 8. MESSAGE PROCESSING & RESPONSE
+# 7. MESSAGE PROCESSING & RESPONSE
 # ============================================================================
 if prompt:
     if not brain:
@@ -339,7 +306,7 @@ if prompt:
         st.rerun()
 
 # ============================================================================
-# 9. INFO & FOOTER
+# 8. INFO & FOOTER
 # ============================================================================
 st.markdown("---")
 st.markdown("""

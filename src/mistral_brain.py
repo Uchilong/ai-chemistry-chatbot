@@ -65,6 +65,18 @@ Always:
 - Organize your responses clearly with headings and bullet points when appropriate
 - When uncertain, explain your reasoning and limitations"""
 
+    @staticmethod
+    def _format_error(prefix: str, error: Exception) -> str:
+        """Return a user-friendly API error message."""
+        message = str(error)
+        lowered = message.lower()
+        if "401" in message or "unauthorized" in lowered:
+            return (
+                "Error: Unauthorized API request (401). "
+                "Please check that `MISTRAL_API_KEY` is set correctly and still valid."
+            )
+        return f"{prefix}: {message}"
+
     def chat(self, user_message: str, chat_history: Optional[list] = None) -> str:
         """
         Send a text message and get AI response.
@@ -107,7 +119,7 @@ Always:
             return str(content)
 
         except Exception as e:
-            return f"Error processing your question: {str(e)}"
+            return self._format_error("Error processing your question", e)
 
     def chat_with_image(
         self,
@@ -184,7 +196,7 @@ Always:
             return self.chat(enhanced_message, chat_history)
 
         except Exception as e:
-            return f"Error reading text file: {str(e)}"
+            return self._format_error("Error reading text file", e)
 
     def _handle_pdf_file(
         self,
@@ -215,7 +227,7 @@ Always:
             return self.chat(enhanced_message, chat_history)
 
         except Exception as e:
-            return f"Error reading PDF file: {str(e)}"
+            return self._format_error("Error reading PDF file", e)
 
     def analyze_chemistry_concept(self, concept: str) -> str:
         """

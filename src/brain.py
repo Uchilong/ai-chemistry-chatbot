@@ -58,6 +58,18 @@ Always:
             system_instruction=self.system_prompt
         )
 
+    @staticmethod
+    def _format_error(prefix: str, error: Exception) -> str:
+        """Return a user-friendly API error message."""
+        message = str(error)
+        lowered = message.lower()
+        if "401" in message or "unauthorized" in lowered:
+            return (
+                "Error: Unauthorized API request (401). "
+                "Please check that `GEMINI_API_KEY` is set correctly and still valid."
+            )
+        return f"{prefix}: {message}"
+
     def chat(self, user_message: str, chat_history: Optional[list] = None) -> str:
         """
         Send a text message and get AI response.
@@ -93,7 +105,7 @@ Always:
             return response.text
         
         except Exception as e:
-            return f"Error processing your question: {str(e)}"
+            return self._format_error("Error processing your question", e)
 
     def chat_with_image(
         self, 
@@ -127,7 +139,7 @@ Always:
             return response.text
         
         except Exception as e:
-            return f"Error processing image: {str(e)}"
+            return self._format_error("Error processing image", e)
 
     def analyze_chemistry_concept(self, concept: str) -> str:
         """
@@ -235,7 +247,7 @@ Format your answer with:
                 return f"Error: Unsupported file type {file_ext}. Supported: jpg, png, gif, webp, txt, pdf"
         
         except Exception as e:
-            return f"Error processing file: {str(e)}"
+            return self._format_error("Error processing file", e)
 
     def _handle_text_file(
         self,
@@ -257,7 +269,7 @@ Format your answer with:
             return self.chat(enhanced_message, chat_history)
         
         except Exception as e:
-            return f"Error reading text file: {str(e)}"
+            return self._format_error("Error reading text file", e)
 
     def _handle_pdf_file(
         self,
@@ -283,7 +295,7 @@ Format your answer with:
             response = self.model.generate_content(prompt)
             return response.text
         except Exception as e:
-            return f"Error processing PDF file with Gemini API: {str(e)}"
+            return self._format_error("Error processing PDF file with Gemini API", e)
 
 
 # Initialize and cache the brain instance
