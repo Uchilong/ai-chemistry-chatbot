@@ -326,6 +326,23 @@ st.markdown(
     unsafe_allow_html=True
 )
 
+# Contest-ready quick chemistry tasks
+quick_prompt = None
+st.markdown("### Quick Solve Modes")
+q1, q2, q3, q4 = st.columns(4)
+with q1:
+    if st.button("Balance Reaction", use_container_width=True):
+        quick_prompt = "Balance this reaction and verify atom counts: Fe + O2 -> Fe2O3"
+with q2:
+    if st.button("Stoichiometry", use_container_width=True):
+        quick_prompt = "How many grams of NaCl can be formed from 2 mol Na with excess Cl2? Show every step."
+with q3:
+    if st.button("Molar Mass", use_container_width=True):
+        quick_prompt = "Calculate the molar mass of Ca(OH)2 and show atomic mass contributions."
+with q4:
+    if st.button("Acid/Base pH", use_container_width=True):
+        quick_prompt = "If [H+] = 1.0e-4 M, calculate pH and provide a quick check."
+
 # Display messages
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
@@ -360,6 +377,9 @@ with col_file:
 # Chat input
 with col_chat:
     prompt = st.chat_input(CHAT_INPUT_PLACEHOLDER, key="main_chat_input")
+
+if quick_prompt:
+    prompt = quick_prompt
 
 # ============================================================================
 # 7. MESSAGE PROCESSING & RESPONSE

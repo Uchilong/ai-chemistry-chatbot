@@ -74,11 +74,19 @@ Always:
 
         task_contract = (
             "Follow this chemistry response contract strictly:\n"
-            "1) Identify task type and list givens.\n"
-            "2) Show balanced equation when relevant.\n"
-            "3) Show formulas used and unit-aware calculations.\n"
-            "4) Validate units and significant figures.\n"
-            "5) Provide a concise final answer section.\n"
+            "Use this exact markdown section order:\n"
+            "## Given\n"
+            "## Formula/Equation\n"
+            "## Steps\n"
+            "## Final Answer (with units)\n"
+            "## Quick Check\n"
+            "## References\n"
+            "## Confidence\n"
+            "Rules:\n"
+            "- Balance equation whenever a reaction appears.\n"
+            "- Include units in all numeric steps and respect significant figures.\n"
+            "- Under References, use bullet points and include [ref:id] when applicable.\n"
+            "- Under Confidence, output one of: High, Medium, Low.\n"
         )
         level_map = {
             "highschool": "Use high-school level vocabulary and avoid advanced quantum detail.",
