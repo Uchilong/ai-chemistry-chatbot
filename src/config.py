@@ -49,13 +49,25 @@ MODEL_CONFIGS = {
         "name": "🧠 Gemini (Accurate Thinking)",
         "description": "Accurate, thorough analysis with detailed reasoning. Best for complex chemistry problems.",
         "speed": "Standard",
-        "best_for": "In-depth analysis, calculations, structure analysis"
+        "best_for": "In-depth analysis, calculations, structure analysis",
+        "rate_limit": "15 requests/minute",
+        "rate_limit_details": "Free tier: 15 RPM, 1M tokens/day"
     },
     "mistral": {
         "name": "⚡ Mistral (Fast Thinking)",
         "description": "Fast, concise answers. Perfect for quick chemistry questions and definitions.",
         "speed": "Fast",
-        "best_for": "Quick answers, definitions, fast lookup"
+        "best_for": "Quick answers, definitions, fast lookup",
+        "rate_limit": "5 requests/second",
+        "rate_limit_details": "Free tier: 5 RPS, 250M tokens/month"
+    },
+    "groq": {
+        "name": "🚀 Groq (Ultra Fast)",
+        "description": "Extremely fast responses with excellent performance. Ideal for rapid chemistry tutoring.",
+        "speed": "Ultra Fast",
+        "best_for": "Real-time tutoring, quick calculations, fast responses",
+        "rate_limit": "30 requests/minute",
+        "rate_limit_details": "Free tier: 30 RPM, 14,400 requests/day"
     }
 }
 

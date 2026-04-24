@@ -7,10 +7,32 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # API Keys
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY", "")
-WOLFRAM_APP_ID = os.getenv("WOLFRAM_APP_ID", "")
-POLLINATIONS_API_KEY = os.getenv("POLLINATIONS_API_KEY", ""))
+GEMINI_API_KEY = ""
+MISTRAL_API_KEY = ""
+GROQ_API_KEY = ""
+WOLFRAM_APP_ID = ""
+POLLINATIONS_API_KEY = ""
+
+try:
+    import streamlit as st
+    GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY", "")
+    MISTRAL_API_KEY = st.secrets.get("MISTRAL_API_KEY", "")
+    GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "")
+    WOLFRAM_APP_ID = st.secrets.get("WOLFRAM_APP_ID", "")
+    POLLINATIONS_API_KEY = st.secrets.get("POLLINATIONS_API_KEY", "")
+except Exception:
+    pass
+
+if not GEMINI_API_KEY:
+    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+if not MISTRAL_API_KEY:
+    MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY", "")
+if not GROQ_API_KEY:
+    GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+if not WOLFRAM_APP_ID:
+    WOLFRAM_APP_ID = os.getenv("WOLFRAM_APP_ID", "")
+if not POLLINATIONS_API_KEY:
+    POLLINATIONS_API_KEY = os.getenv("POLLINATIONS_API_KEY", "")
 
 # Backend Configuration
 BACKEND_HOST = os.getenv("BACKEND_HOST", "0.0.0.0")
@@ -46,8 +68,8 @@ def validate_config():
     missing_keys = []
     
     # Check for at least one AI API key
-    if not GEMINI_API_KEY and not MISTRAL_API_KEY:
-        missing_keys.append("At least one of GEMINI_API_KEY or MISTRAL_API_KEY is required")
+    if not GEMINI_API_KEY and not MISTRAL_API_KEY and not GROQ_API_KEY:
+        missing_keys.append("At least one of GEMINI_API_KEY, MISTRAL_API_KEY, or GROQ_API_KEY is required")
     
     # Check optional but recommended keys
     if not WOLFRAM_APP_ID:
@@ -76,5 +98,9 @@ def get_tool_status():
         "media": {
             "enabled": ENABLE_MEDIA,
             "status": "available" if ENABLE_MEDIA else "disabled"
+        },
+        "groq": {
+            "enabled": True,
+            "status": "full" if GROQ_API_KEY else "limited"
         }
     }

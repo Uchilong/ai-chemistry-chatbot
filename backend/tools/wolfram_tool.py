@@ -34,6 +34,45 @@ class WolframTool:
         if not self.app_id:
             print("Warning: Wolfram Alpha App ID not provided. Some features will be limited.")
     
+    def _convert_latex_to_unicode(self, text: str) -> str:
+        """Convert LaTeX-style chemical formulas to Unicode."""
+        if not text:
+            return text
+        
+        # Replace LaTeX-style subscripts with Unicode subscripts
+        latex_to_unicode = {
+            '_0': '₀', '_1': '₁', '_2': '₂', '_3': '₃', '_4': '₄',
+            '_5': '₅', '_6': '₆', '_7': '₇', '_8': '₈', '_9': '₉',
+            '^0': '⁰', '^1': '¹', '^2': '²', '^3': '³', '^4': '⁴',
+            '^5': '⁵', '^6': '⁶', '^7': '⁷', '^8': '⁸', '^9': '⁹',
+            '^+': '⁺', '^-': '⁻', '^2+': '²⁺', '^2-': '²⁻',
+            '^3+': '³⁺', '^3-': '³⁻',
+        }
+        
+        # Replace arrows
+        arrows = {
+            '->': '→',
+            '<-': '←', 
+            '<->': '⇌',
+            '=>': '⇒',
+            '<=': '⇐',
+            '<=>': '⇔',
+            '→': '→',
+            '←': '←',
+            '⇌': '⇌',
+            '⟶': '→',
+            '⟷': '⇌'
+        }
+        
+        result = text
+        for latex, unicode_char in latex_to_unicode.items():
+            result = result.replace(latex, unicode_char)
+        
+        for arrow_latex, arrow_unicode in arrows.items():
+            result = result.replace(arrow_latex, arrow_unicode)
+        
+        return result
+    
     def balance_equation(self, equation: str) -> CalculationResult:
         """
         Balance chemical equation.
@@ -215,10 +254,10 @@ class WolframTool:
                     
                     return CalculationResult(
                         input_expression=query,
-                        result=result,
-                        steps=steps,
+                        result=self._convert_latex_to_unicode(result),
+                        steps=[self._convert_latex_to_unicode(step) for step in steps],
                         units=self._extract_units(result),
-                        explanation=explanation,
+                        explanation=self._convert_latex_to_unicode(explanation),
                         success=True
                     )
                 else:
@@ -274,7 +313,7 @@ class WolframTool:
         # This is a very basic fallback - real balancing requires complex algorithms
         return CalculationResult(
             input_expression=equation,
-            result=f"Balanced: {equation} (simplified)",
+            result=self._convert_latex_to_unicode(f"Balanced: {equation} (simplified)"),
             steps=["1. Count atoms on each side", "2. Balance coefficients", "3. Verify balance"],
             units="",
             explanation="This is a simplified result. Use Wolfram Alpha API for accurate balancing.",
@@ -283,7 +322,30 @@ class WolframTool:
     
     def _calculate_molar_mass_fallback(self, formula: str) -> CalculationResult:
         """Fallback molar mass calculation using basic atomic weights."""
-        # Basic atomic masses
+        # Check if it's a known compound first
+        known_compounds = {
+            'H2O': 18.015, 'CO2': 44.01, 'O2': 32.00, 'H2': 2.016,
+            'N2': 28.014, 'NH3': 17.031, 'CH4': 16.04, 'NaCl': 58.44,
+            'HCl': 36.46, 'NaOH': 40.00, 'C6H12O6': 180.16, 'H2SO4': 98.079,
+            'HNO3': 63.01, 'CH3COOH': 60.05, 'C2H5OH': 46.07, 'SO2': 64.07,
+            'NO2': 46.01, 'CO': 28.01, 'H2S': 34.08, 'SO3': 80.06,
+            'CaCO3': 100.09, 'Na2CO3': 105.99, 'KCl': 74.55, 'MgSO4': 120.37
+        }
+        
+        # Clean up the formula
+        clean_formula = formula.strip().replace(' ', '')
+        
+        if clean_formula in known_compounds:
+            return CalculationResult(
+                input_expression=formula,
+                result=f"{known_compounds[clean_formula]:.3f} g/mol",
+                steps=[f"Known compound: {clean_formula}", f"Molar mass: {known_compounds[clean_formula]:.3f} g/mol"],
+                units="g/mol",
+                explanation=f"Molar mass of {clean_formula} from database",
+                success=True
+            )
+        
+        # Basic atomic masses for calculation
         atomic_masses = {
             'H': 1.008, 'He': 4.003, 'Li': 6.941, 'Be': 9.012, 'B': 10.81, 'C': 12.011,
             'N': 14.007, 'O': 15.999, 'F': 18.998, 'Ne': 20.180, 'Na': 22.990, 'Mg': 24.305,
@@ -334,23 +396,109 @@ class WolframTool:
     
     def _stoichiometry_fallback(self, equation: str, given_amount: float, 
                                given_unit: str, find_substance: str) -> CalculationResult:
-        """Fallback stoichiometry calculation."""
-        steps = [
-            f"1. Analyze equation: {equation}",
-            f"2. Given: {given_amount} {given_unit}",
-            f"3. Find: amount of {find_substance}",
-            "4. Use mole ratios from balanced equation",
-            "5. Convert units as needed"
-        ]
-        
-        return CalculationResult(
-            input_expression=f"{equation}, {given_amount} {given_unit} -> {find_substance}",
-            result="Stoichiometry calculation requires Wolfram Alpha API for accuracy",
-            steps=steps,
-            units="",
-            explanation="This is a simplified guide. Use Wolfram Alpha API for detailed calculations.",
-            success=True
-        )
+        """Fallback stoichiometry calculation with basic logic."""
+        try:
+            # Parse equation to get coefficients (simplified)
+            import re
+            
+            steps = [f"1. Analyze equation: {equation}"]
+            
+            # Extract substances and coefficients from equation
+            # This is a simplified approach - real stoichiometry is more complex
+            if '->' in equation:
+                parts = equation.split('->')
+            elif '→' in equation:
+                parts = equation.split('→')
+            elif '=' in equation:
+                parts = equation.split('=')
+            else:
+                # If no arrow found, assume it's just a formula for molar mass
+                return self._calculate_molar_mass_fallback(equation)
+            
+            if len(parts) < 2:
+                # Not enough parts for stoichiometry, treat as molar mass calculation
+                return self._calculate_molar_mass_fallback(equation)
+            
+            left_side, right_side = parts[0], parts[1]
+            
+            # Check if this looks like a single formula (like "H2SO4") instead of equation
+            if not left_side.strip() or not right_side.strip():
+                return self._calculate_molar_mass_fallback(equation)
+            
+            # Get molar masses for basic substances
+            molar_masses = {
+                'H2O': 18.015, 'CO2': 44.01, 'O2': 32.00, 'H2': 2.016,
+                'N2': 28.014, 'NH3': 17.031, 'CH4': 16.04, 'NaCl': 58.44,
+                'HCl': 36.46, 'NaOH': 40.00, 'C6H12O6': 180.16, 'H2SO4': 98.079,
+                'HNO3': 63.01, 'CH3COOH': 60.05, 'C2H5OH': 46.07, 'SO2': 64.07,
+                'NO2': 46.01, 'CO': 28.01, 'H2S': 34.08, 'SO3': 80.06,
+                'CaCO3': 100.09, 'Na2CO3': 105.99, 'KCl': 74.55, 'MgSO4': 120.37
+            }
+            
+            # Convert given amount to moles if needed
+            if given_unit == 'g':
+                # Try to identify the substance from equation
+                substance = self._extract_first_substance(left_side)
+                molar_mass = molar_masses.get(substance, 18.015)  # Default to water
+                given_moles = given_amount / molar_mass
+                steps.append(f"2. Convert {given_amount} g {substance} to moles: {given_amount:.2f} / {molar_mass:.2f} = {given_moles:.4f} mol")
+            elif given_unit == 'mol':
+                given_moles = given_amount
+                steps.append(f"2. Given amount: {given_amount} mol")
+            else:
+                given_moles = given_amount
+                steps.append(f"2. Given amount: {given_amount} {given_unit}")
+            
+            # Simple 1:1 ratio assumption (this is very basic)
+            result_moles = given_moles
+            result_substance = self._extract_substance(right_side, find_substance)
+            
+            # Convert back to requested unit
+            if given_unit == 'g':
+                molar_mass = molar_masses.get(result_substance, 18.015)
+                result_amount = result_moles * molar_mass
+                result_unit = 'g'
+                steps.append(f"3. Convert {result_moles:.4f} mol {result_substance} to grams: {result_moles:.4f} × {molar_mass:.2f} = {result_amount:.2f} g")
+            else:
+                result_amount = result_moles
+                result_unit = 'mol'
+                steps.append(f"3. Result: {result_moles:.4f} mol {result_substance}")
+            
+            result_text = f"{result_amount:.2f} {result_unit} {result_substance}"
+            
+            return CalculationResult(
+                input_expression=f"{equation}, {given_amount} {given_unit} -> {find_substance}",
+                result=self._convert_latex_to_unicode(result_text),
+                steps=steps,
+                units=result_unit,
+                explanation=f"Basic stoichiometry calculation. For complex equations, use Wolfram Alpha API for accurate results.",
+                success=True
+            )
+            
+        except Exception as e:
+            return CalculationResult(
+                input_expression=f"{equation}, {given_amount} {given_unit} -> {find_substance}",
+                result="Unable to calculate stoichiometry",
+                steps=["Error in calculation"],
+                units="",
+                explanation=f"Calculation failed: {str(e)}",
+                success=False,
+                error_message=f"Error in fallback calculation: {str(e)}"
+            )
+    
+    def _extract_first_substance(self, equation_part: str) -> str:
+        """Extract the first substance from equation part."""
+        import re
+        # Simple pattern to extract chemical formulas
+        match = re.search(r'([A-Z][a-z0-9]+)', equation_part.strip())
+        return match.group(1) if match else "H2O"
+    
+    def _extract_substance(self, equation_part: str, target: str) -> str:
+        """Extract substance from equation part."""
+        import re
+        # Try to find target substance in equation
+        match = re.search(r'([A-Z][a-z0-9]+)', equation_part.strip())
+        return match.group(1) if match else target
 
 # Singleton instance
 wolfram_tool = WolframTool()

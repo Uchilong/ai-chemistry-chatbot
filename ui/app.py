@@ -111,6 +111,17 @@ try:
 except Exception:
     pass
 
+try:
+    groq_brain = get_groq_brain()
+    available_models["Groq (Ultra Fast)"] = MODEL_CONFIGS["groq"]
+    brains["Groq (Ultra Fast)"] = groq_brain
+    print("✅ Groq brain initialized successfully")
+except Exception as e:
+    print(f"❌ Groq brain failed to initialize: {e}")
+    pass
+
+print("Available models:", available_models)
+
 # Validate configuration
 if not available_models:
     st.error(
@@ -225,25 +236,6 @@ st.markdown(css, unsafe_allow_html=True)
 with st.sidebar:
     st.title("🧪 Hóa Học AI")
     
-    # Model Selection
-    st.markdown("---")
-    st.subheader("🤖 Chọn Mô Hình AI")
-    
-    cols = st.columns([0.8, 0.2])
-    with cols[0]:
-        selected = st.radio(
-            "Mô hình:",
-            options=list(available_models.keys()),
-            index=list(available_models.keys()).index(st.session_state.selected_model) 
-                  if st.session_state.selected_model in available_models else 0,
-            label_visibility="collapsed"
-        )
-    
-    if selected != st.session_state.selected_model:
-        st.session_state.selected_model = selected
-        st.session_state.messages = []
-        st.rerun()
-
     st.markdown("---")
     st.subheader("👤 Tài Khoản")
     if not st.session_state.user_id:
@@ -295,6 +287,168 @@ with st.sidebar:
         help="Mở máy tính khoa học ngoài (MathDA)"
     )
 
+    st.markdown("---")
+    st.subheader("🔬 Công Cụ Hóa Học")
+    
+    # Pollinations Media Tool
+    with st.expander("🎨 Tạo Hình Ảnh Hóa Học", expanded=False):
+        st.markdown("**Tạo hình ảnh minh họa cho các khái niệm hóa học**")
+        
+        # Show limitations
+        st.info("""
+        **📋 Giới hạn công cụ:**
+        - ✅ **Khái niệm cơ bản:** Phân tử, cấu trúc, phản ứng đơn giản
+        - ✅ **4 phong cách:** Giáo dục, Sơ đồ, Thực tế, Hoạt hình
+        - ❌ **Cấu trúc phức tạp:** Không hỗ trợ cấu trúc 3D chi tiết
+        - ❌ **Hình ảnh động:** Chỉ tạo hình ảnh tĩnh
+        - ❌ **Số lượng giới hạn:** Miễn phí có giới hạn requests/ngày
+        """)
+        
+        concept = st.text_input(
+            "Khái niệm hóa học:",
+            placeholder="Ví dụ: phân tử nước, cấu trúc benzene, phản ứng trung hòa",
+            key="pollinations_concept"
+        )
+        
+        style = st.selectbox(
+            "Phong cách:",
+            options=["educational", "diagram", "realistic", "cartoon"],
+            format_func=lambda x: {
+                "educational": "📚 Giáo dục",
+                "diagram": "📊 Sơ đồ", 
+                "realistic": "🖼️ Thực tế",
+                "cartoon": "🎨 Hoạt hình"
+            }[x],
+            key="pollinations_style"
+        )
+        
+        st.caption("💡 **Gợi ý khái niệm:** phân tử nước, cấu trúc benzene, phản ứng trung hòa, tế bào, nguyên tử, liên kết hóa học, cầu phân tử")
+        
+        if st.button("🎨 Tạo Hình Ảnh", use_container_width=True, key="generate_image"):
+            if concept.strip():
+                with st.spinner("Đang tạo hình ảnh..."):
+                    try:
+                        # Import and use media tool
+                        import sys
+                        from pathlib import Path as PathlibPath
+                        backend_path = str(PathlibPath(__file__).parent.parent / "backend")
+                        if backend_path not in sys.path:
+                            sys.path.insert(0, backend_path)
+                        from tools.media_tool import media_tool
+                        
+                        result = media_tool.generate_chemistry_image(concept.strip(), style)
+                        if result.success:
+                            st.success("✅ Đã tạo hình ảnh thành công!")
+                            st.image(result.content_url, caption=f"🎨 {concept}")
+                            st.markdown(f"[Tải xuống hình ảnh]({result.content_url})")
+                        else:
+                            st.error(f"❌ Lỗi: {result.error_message}")
+                    except Exception as e:
+                        st.error(f"❌ Không thể tạo hình ảnh: {str(e)}")
+            else:
+                st.error("Vui lòng nhập khái niệm hóa học")
+        
+        # Warning about API limitations
+        st.warning("""
+        **⚠️ Lưu ý quan trọng:**
+        - Công cụ này sử dụng Pollinations AI (miễn phí)
+        - Có giới hạn số lượng hình ảnh mỗi ngày
+        - Để sử dụng không giới hạn, hãy thêm `POLLINATIONS_API_KEY` vào file `.env`
+        - Chất lượng hình ảnh có thể không chính xác 100% về mặt hóa học
+        """)
+    
+    # Wolfram Tool
+    with st.expander("🧮 Tính Toán Hóa Học", expanded=False):
+        st.markdown("**Cân bằng phương trình và tính toán hóa học**")
+        
+        # Show limitations
+        st.info("""
+        **📋 Giới hạn công cụ:**
+        - ✅ **Cân bằng phương trình:** Hỗ trợ các phương trình cơ bản
+        - ✅ **Khối lượng mol:** 20 hợp chất phổ biến (H₂O, CO₂, H₂SO₄, v.v.)
+        - ❌ **Định lượng phức tạp:** Không hỗ trợ tỷ lệ mol phức tạp (như C₄H₁₀ + O₂ → CO₂ + H₂O)
+        - ❌ **Đơn vị nâng cao:** Chỉ hỗ trợ g ↔ mol, không hỗ trợ kg, L, v.v.
+        """)
+        
+        # Equation Balancing
+        st.markdown("##### ⚖️ Cân bằng phương trình")
+        equation = st.text_input(
+            "Phương trình hóa học:",
+            placeholder="Ví dụ: H2 + O2 -> H2O",
+            key="wolfram_equation"
+        )
+        
+        if st.button("⚖️ Cân bằng", use_container_width=True, key="balance_equation"):
+            if equation.strip():
+                with st.spinner("Đang cân bằng phương trình..."):
+                    try:
+                        import sys
+                        from pathlib import Path as PathlibPath
+                        backend_path = str(PathlibPath(__file__).parent.parent / "backend")
+                        if backend_path not in sys.path:
+                            sys.path.insert(0, backend_path)
+                        from tools.wolfram_tool import wolfram_tool
+                        
+                        result = wolfram_tool.balance_equation(equation.strip())
+                        if result.success:
+                            st.success("✅ Phương trình đã cân bằng!")
+                            st.markdown(f"**Phương trình:** {result.result}")
+                            if result.steps:
+                                with st.expander("Xem các bước"):
+                                    st.text(result.steps)
+                        else:
+                            st.error(f"❌ Lỗi: {result.error_message}")
+                    except Exception as e:
+                        st.error(f"❌ Không thể cân bằng: {str(e)}")
+            else:
+                st.error("Vui lòng nhập phương trình")
+        
+        # Molar Mass Calculation
+        st.markdown("##### ⚛️ Tính khối lượng mol")
+        formula = st.text_input(
+            "Công thức hóa học:",
+            placeholder="Ví dụ: H2O, C6H12O6, NaCl, H2SO4",
+            key="wolfram_formula"
+        )
+        
+        st.caption("📚 **Hợp chất hỗ trợ:** H₂O, CO₂, O₂, H₂, N₂, NH₃, CH₄, NaCl, HCl, NaOH, C₆H₁₂O₆, H₂SO₄, HNO₃, CH₃COOH, C₂H₅OH, SO₂, NO₂, CO, H₂S, SO₃, CaCO₃, Na₂CO₃, KCl, MgSO₄")
+        
+        if st.button("⚛️ Tính Khối Lượng", use_container_width=True, key="calculate_molar"):
+            if formula.strip():
+                with st.spinner("Đang tính khối lượng mol..."):
+                    try:
+                        import sys
+                        from pathlib import Path as PathlibPath
+                        backend_path = str(PathlibPath(__file__).parent.parent / "backend")
+                        if backend_path not in sys.path:
+                            sys.path.insert(0, backend_path)
+                        from tools.wolfram_tool import wolfram_tool
+                        
+                        result = wolfram_tool.stoichiometry_calculation(
+                            formula.strip(), 1, "mol", formula.strip()
+                        )
+                        if result.success:
+                            st.success("✅ Tính toán hoàn tất!")
+                            st.markdown(f"**Kết quả:** {result.result}")
+                            if result.steps:
+                                with st.expander("Xem các bước"):
+                                    for step in result.steps:
+                                        st.text(step)
+                        else:
+                            st.error(f"❌ Lỗi: {result.error_message}")
+                    except Exception as e:
+                        st.error(f"❌ Không thể tính toán: {str(e)}")
+            else:
+                st.error("Vui lòng nhập công thức hóa học")
+        
+        # Warning about complex calculations
+        st.warning("""
+        **⚠️ Lưu ý quan trọng:**
+        - Công cụ này chỉ dành cho tính toán **cơ bản**
+        - Với các phương trình phức tạp như `C₄H₁₀ + O₂ → CO₂ + H₂O`, vui lòng sử dụng **Wolfram Alpha API**
+        - Để có kết quả chính xác, hãy thêm `WOLFRAM_APP_ID` vào file `.env`
+        """)
+    
     st.markdown("---")
 
     with st.expander("📚 Tài Liệu Học Tập", expanded=False):
@@ -365,6 +519,15 @@ for message in st.session_state.messages:
         if "file_name" in message and "image" not in message:
             st.caption(f"📁 File: {message['file_name']}")
 
+# Show AI model limitations
+st.info("""
+**🤖 Khả năng AI hiện tại:**
+- ✅ **Gemini**: Phân tích hình ảnh, xử lý văn bản, tính toán hóa học
+- ✅ **Mistral/Groq**: Xử lý văn bản nhanh, không hỗ trợ hình ảnh
+- ❌ **Hình ảnh phức tạp**: Sơ đồ hóa học phức tạp có thể không chính xác
+- ❌ **Tính toán nâng cao**: Các phản ứng phức tạp cần Wolfram Alpha API
+""")
+
 # ============================================================================
 # 6. INPUT AREA - FILE UPLOAD & TEXT INPUT
 # ============================================================================
@@ -377,6 +540,16 @@ col_file, col_chat = st.columns([0.15, 0.85])
 with col_file:
     with st.popover("📎 Tải lên"):
         st.markdown("### 📤 Tải Lên Tệp")
+        
+        # Show file limitations
+        st.info("""
+        **📋 Giới hạn tệp:**
+        - ✅ **Hình ảnh**: jpg, png, gif, webp (≤10MB)
+        - ✅ **PDF**: Hỗ trợ OCR văn bản (≤10MB)
+        - ❌ **Video/Audio**: Không hỗ trợ
+        - ❌ **Tệp lớn**: >10MB sẽ bị từ chối
+        """)
+        
         uploaded_file = st.file_uploader(
             FILE_UPLOAD_LABEL,
             type=SUPPORTED_FILE_TYPES,
