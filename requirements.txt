@@ -1,0 +1,8 @@
+streamlit
+Pillow
+google-generativeai
+python-dotenv
+requests
+mistralai
+PyPDF2
+pydantic
