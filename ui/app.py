@@ -27,6 +27,7 @@ from user_store import (
     load_learning_resources,
     delete_learning_resource,
 )
+from safe_calc import evaluate_expression
 from config import (
     GEMINI_API_KEY, MISTRAL_API_KEY, APP_TITLE, APP_ICON,
     SUPPORTED_FILE_TYPES, FILE_UPLOAD_LABEL, FILE_UPLOAD_HELP,
@@ -57,8 +58,22 @@ if "user_id" not in st.session_state:
     st.session_state.user_id = None
 if "learning_resources" not in st.session_state:
     st.session_state.learning_resources = []
+if "chat_draft_input" not in st.session_state:
+    st.session_state.chat_draft_input = ""
+if "calc_expr" not in st.session_state:
+    st.session_state.calc_expr = ""
+if "calc_error" not in st.session_state:
+    st.session_state.calc_error = ""
 
 init_user_store()
+
+
+def append_to_draft(token: str) -> None:
+    st.session_state.chat_draft_input = f"{st.session_state.chat_draft_input}{token}"
+
+
+def append_to_calc(token: str) -> None:
+    st.session_state.calc_expr = f"{st.session_state.calc_expr}{token}"
 
 # ============================================================================
 # 2. INITIALIZE AI BRAINS
@@ -266,6 +281,12 @@ with st.sidebar:
             use_container_width=True,
             help="Open online chemistry symbol keyboard in a new tab"
         )
+    st.link_button(
+        "🧮 Scientific Calculator",
+        "https://mathda.com/calculator/vi",
+        use_container_width=True,
+        help="Open external scientific calculator (MathDA)"
+    )
     
     st.markdown("---")
 
@@ -357,6 +378,108 @@ for message in st.session_state.messages:
 # ============================================================================
 st.markdown("---")
 
+with st.expander("Math Input Tools", expanded=False):
+    st.link_button(
+        "Open Scientific Calculator (MathDA)",
+        "https://mathda.com/calculator/vi",
+        use_container_width=False
+    )
+    tab_pop, tab_trig, tab_calc, tab_cmp, tab_greek, tab_calcpad = st.tabs(
+        ["Popular", "Trig", "Calculus", "Comparisons", "Greek", "Calculator"]
+    )
+
+    with tab_pop:
+        pop_tokens = ["→", "⇌", "Δ", "hν", "H₂O", "CO₂", "OH⁻", "H⁺", "NaCl", "=", "+", "-", "×", "÷", "π"]
+        pop_cols = st.columns(5)
+        for i, token in enumerate(pop_tokens):
+            with pop_cols[i % 5]:
+                if st.button(token, key=f"pop_tok_{i}", use_container_width=True):
+                    append_to_draft(token)
+
+    with tab_trig:
+        trig_tokens = ["sin(", "cos(", "tan(", "csc(", "sec(", "cot(", "arcsin(", "arccos(", "arctan(", ")", "pi", "e"]
+        trig_cols = st.columns(6)
+        for i, token in enumerate(trig_tokens):
+            with trig_cols[i % 6]:
+                if st.button(token, key=f"trig_tok_{i}", use_container_width=True):
+                    append_to_draft(token)
+
+    with tab_calc:
+        calc_tokens = ["d/dx", "∫", "∂", "∇", "lim", "Σ", "Π", "∞", "√(", "x²", "x⁻¹", "| |"]
+        calc_cols = st.columns(6)
+        for i, token in enumerate(calc_tokens):
+            with calc_cols[i % 6]:
+                if st.button(token, key=f"calc_tok_{i}", use_container_width=True):
+                    append_to_draft(token)
+
+    with tab_cmp:
+        cmp_tokens = [">", "<", "=", "≥", "≤", "≠", "±", "≈", "∝", "∈", "∉", "↔", "→", "←"]
+        cmp_cols = st.columns(7)
+        for i, token in enumerate(cmp_tokens):
+            with cmp_cols[i % 7]:
+                if st.button(token, key=f"cmp_tok_{i}", use_container_width=True):
+                    append_to_draft(token)
+
+    with tab_greek:
+        greek_tokens = ["α", "β", "γ", "δ", "ε", "ζ", "η", "θ", "λ", "μ", "ν", "ρ", "σ", "τ", "φ", "χ", "ω"]
+        greek_cols = st.columns(9)
+        for i, token in enumerate(greek_tokens):
+            with greek_cols[i % 9]:
+                if st.button(token, key=f"gr_tok_{i}", use_container_width=True):
+                    append_to_draft(token)
+
+    with tab_calcpad:
+        st.text_input("Expression", key="calc_expr", placeholder="e.g. (2+3)*sqrt(16)")
+        k1 = st.columns(5)
+        for i, token in enumerate(["7", "8", "9", "/", "("]):
+            with k1[i]:
+                if st.button(token, key=f"kp1_{token}", use_container_width=True):
+                    append_to_calc(token)
+        k2 = st.columns(5)
+        for i, token in enumerate(["4", "5", "6", "*", ")"]):
+            with k2[i]:
+                if st.button(token, key=f"kp2_{token}", use_container_width=True):
+                    append_to_calc(token)
+        k3 = st.columns(5)
+        for i, token in enumerate(["1", "2", "3", "-", "^"]):
+            with k3[i]:
+                if st.button(token, key=f"kp3_{token}", use_container_width=True):
+                    append_to_calc(token)
+        k4 = st.columns(5)
+        for i, token in enumerate(["0", ".", "pi", "+", "sqrt("]):
+            with k4[i]:
+                if st.button(token, key=f"kp4_{token}", use_container_width=True):
+                    append_to_calc(token)
+        k5 = st.columns(5)
+        with k5[0]:
+            if st.button("⌫", key="kp_backspace", use_container_width=True):
+                st.session_state.calc_expr = st.session_state.calc_expr[:-1]
+        with k5[1]:
+            if st.button("Clear", key="kp_clear", use_container_width=True):
+                st.session_state.calc_expr = ""
+                st.session_state.calc_error = ""
+        with k5[2]:
+            if st.button("Result → Draft", key="kp_eval_append", use_container_width=True):
+                try:
+                    result = evaluate_expression(st.session_state.calc_expr)
+                    append_to_draft(str(result))
+                    st.session_state.calc_error = ""
+                except Exception as exc:
+                    st.session_state.calc_error = f"Calculator error: {exc}"
+        with k5[3]:
+            if st.button("Expr=Res → Draft", key="kp_eval_expr", use_container_width=True):
+                try:
+                    result = evaluate_expression(st.session_state.calc_expr)
+                    append_to_draft(f"{st.session_state.calc_expr} = {result}")
+                    st.session_state.calc_error = ""
+                except Exception as exc:
+                    st.session_state.calc_error = f"Calculator error: {exc}"
+        with k5[4]:
+            if st.button("e", key="kp_e", use_container_width=True):
+                append_to_calc("e")
+        if st.session_state.calc_error:
+            st.error(st.session_state.calc_error)
+
 # File upload
 uploaded_file = None
 col_file, col_chat = st.columns([0.15, 0.85])
@@ -376,7 +499,20 @@ with col_file:
 
 # Chat input
 with col_chat:
-    prompt = st.chat_input(CHAT_INPUT_PLACEHOLDER, key="main_chat_input")
+    st.text_area(
+        "Message",
+        key="chat_draft_input",
+        height=90,
+        label_visibility="collapsed",
+        placeholder=CHAT_INPUT_PLACEHOLDER
+    )
+    send_col, clear_col = st.columns([0.8, 0.2])
+    with send_col:
+        send_clicked = st.button("Send", key="send_draft_btn", use_container_width=True)
+    with clear_col:
+        if st.button("Clear", key="clear_draft_btn", use_container_width=True):
+            st.session_state.chat_draft_input = ""
+    prompt = st.session_state.chat_draft_input.strip() if send_clicked else None
 
 if quick_prompt:
     prompt = quick_prompt
@@ -483,6 +619,7 @@ if prompt:
             except Exception as e:
                 st.error(f"❌ Error: {str(e)}")
         
+        st.session_state.chat_draft_input = ""
         st.rerun()
 
 # ============================================================================
