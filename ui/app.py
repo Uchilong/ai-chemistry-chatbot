@@ -38,7 +38,7 @@ if "messages" not in st.session_state:
 if "history" not in st.session_state:
     st.session_state.history = []
 if "selected_model" not in st.session_state:
-    st.session_state.selected_model = "Gemini (Accurate)"
+    st.session_state.selected_model = "Mistral (Fast)"
 
 # ============================================================================
 # 2. INITIALIZE AI BRAINS
@@ -79,6 +79,13 @@ if not available_models:
     )
     st.stop()
 
+# Ensure selected model is valid and default to Mistral when available
+if st.session_state.selected_model not in available_models:
+    if "Mistral (Fast)" in available_models:
+        st.session_state.selected_model = "Mistral (Fast)"
+    else:
+        st.session_state.selected_model = list(available_models.keys())[0]
+
 # Get selected brain
 brain = brains.get(st.session_state.selected_model)
 
@@ -87,47 +94,38 @@ brain = brains.get(st.session_state.selected_model)
 # ============================================================================
 st.markdown("""
     <style>
+    /* Gemini-like clean layout */
+    .block-container {
+        max-width: 980px;
+        padding-top: 1.5rem;
+        padding-bottom: 1rem;
+    }
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+
+    .app-header {
+        text-align: center;
+        margin-bottom: 1rem;
+    }
+    .app-header h1 {
+        font-size: 2rem;
+        font-weight: 600;
+        margin-bottom: 0.25rem;
+    }
+    .app-header p {
+        color: #6b7280;
+        margin-top: 0;
+    }
+
     .stChatMessage {
-        border-radius: 15px;
-        padding: 15px;
-        background-color: rgba(255, 255, 255, 0.8);
+        border-radius: 16px;
+        padding: 12px 14px;
+        border: 1px solid #e6e8ee;
+        background-color: #ffffff;
     }
-    
-    .model-selector {
-        padding: 15px;
-        border-radius: 10px;
-        border: 2px solid #4CAF50;
-        background-color: rgba(76, 175, 80, 0.1);
-        margin-bottom: 15px;
-    }
-    
-    .chemistry-keyboard-btn {
-        background-color: #ff6b6b;
-        color: white;
-        border-radius: 50%;
-        width: 50px;
-        height: 50px;
-        font-size: 24px;
-        border: none;
-        cursor: pointer;
-    }
-    
-    .quick-symbol {
-        display: inline-block;
-        background-color: #f0f2f6;
-        border: 1px solid #ddd;
-        border-radius: 8px;
-        padding: 8px 12px;
-        margin: 4px;
-        cursor: pointer;
-        font-weight: bold;
-        transition: all 0.2s ease;
-    }
-    
-    .quick-symbol:hover {
-        background-color: #4CAF50;
-        color: white;
-        transform: scale(1.05);
+
+    [data-testid="stSidebar"] {
+        border-right: 1px solid #e6e8ee;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -136,7 +134,7 @@ st.markdown("""
 # 4. SIDEBAR - MODEL SELECTION & HISTORY
 # ============================================================================
 with st.sidebar:
-    st.title("🧪 Chemistry Tutor AI")
+    st.title("🧪 Chemistry AI")
     
     # Model Selection
     st.markdown("---")
@@ -156,16 +154,6 @@ with st.sidebar:
         st.session_state.selected_model = selected
         st.session_state.messages = []
         st.rerun()
-    
-    # Show model info
-    model_info = available_models.get(st.session_state.selected_model)
-    if model_info:
-        with st.expander(f"ℹ️ {model_info['name']}", expanded=True):
-            st.markdown(f"**{model_info['description']}**")
-            st.markdown(f"⚡ Speed: {model_info['speed']}")
-            st.markdown(f"✅ Best for: {model_info['best_for']}")
-    
-    st.markdown("---")
     
     # Chat Management
     col1, col2 = st.columns(2)
@@ -202,7 +190,15 @@ with st.sidebar:
 # ============================================================================
 # 5. MAIN CHAT DISPLAY
 # ============================================================================
-st.title(f"{APP_ICON} AI Chemistry Tutor - {st.session_state.selected_model}")
+st.markdown(
+    f"""
+    <div class="app-header">
+        <h1>{APP_ICON} Chemistry AI</h1>
+        <p>{st.session_state.selected_model}</p>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
 # Display messages
 for message in st.session_state.messages:
