@@ -1,8 +1,8 @@
 import os
-import base64
-from typing import Optional, List, Union
+from typing import Optional
 import google.generativeai as genai
 from pathlib import Path
+from PIL import Image
 
 # Import config for API key and settings
 try:
@@ -15,15 +15,14 @@ except ImportError:
 class ChemistryAIBrain:
     """Backend brain for AI Chemistry Chatbot using Google Gemini API - Accurate Thinking Mode."""
     
-    def __init__(self, api_key: Optional[str] = None, thinking_mode: bool = True):
+    def __init__(self, api_key: Optional[str] = None):
         """
         Initialize the Chemistry AI Brain.
         
         Args:
             api_key: Google Gemini API key. If None, will try to load from GEMINI_API_KEY env variable.
-            thinking_mode: Enable extended thinking for more accurate responses.
         """
-        self.api_key = api_key or GEMINI_API_KEY or os.getenv("GEMINI_API_KEY")
+        self.api_key = api_key or GEMINI_API_KEY
         
         if not self.api_key:
             raise ValueError(
@@ -33,8 +32,6 @@ class ChemistryAIBrain:
             )
         
         genai.configure(api_key=self.api_key)
-        self.thinking_mode = thinking_mode
-        self.model = genai.GenerativeModel(MODEL_NAME)
         
         self.system_prompt = """You are an expert Chemistry AI tutor specializing in helping students learn chemistry with ACCURACY and DEPTH.
 Your responsibilities:
@@ -56,6 +53,11 @@ Always:
 - Organize your responses clearly with headings and bullet points when appropriate
 - When uncertain, explain your reasoning and limitations"""
 
+        self.model = genai.GenerativeModel(
+            MODEL_NAME,
+            system_instruction=self.system_prompt
+        )
+
     def chat(self, user_message: str, chat_history: Optional[list] = None) -> str:
         """
         Send a text message and get AI response.
@@ -68,26 +70,25 @@ Always:
             AI's response text
         """
         try:
-            # Build conversation history for context
-            conversation = [
-                {"role": "user", "parts": [self.system_prompt]},
-                {"role": "model", "parts": ["I understand. I'm ready to help you learn chemistry!"]}
-            ]
+            # Start a new chat session and build history
+            chat_session = self.model.start_chat(history=[])
             
-            # Add previous messages if provided
             if chat_history:
+                # The genai library expects a flat list of contents, not role-based dicts
+                # We need to adapt our history format.
+                history_for_api = []
                 for msg in chat_history:
-                    role = "user" if msg.get("role") == "user" else "model"
-                    parts = [msg.get("content", "")]
-                    conversation.append({"role": role, "parts": parts})
-            
-            # Add current message
-            conversation.append({"role": "user", "parts": [user_message]})
-            
+                    role = msg.get("role", "user")
+                    # Gemini chat history expects `user` and `model` roles.
+                    if role == "assistant":
+                        role = "model"
+                    elif role not in {"user", "model"}:
+                        role = "user"
+                    history_for_api.append({"role": role, "parts": [msg.get("content", "")]})
+                chat_session.history = history_for_api
+
             # Get response from Gemini
-            response = self.model.generate_content(
-                [{"text": self.system_prompt + "\n\nUser: " + user_message}]
-            )
+            response = chat_session.send_message(user_message)
             
             return response.text
         
@@ -115,34 +116,13 @@ Always:
             if not Path(image_path).exists():
                 return f"Error: Image file not found at {image_path}"
             
-            # Read and encode image
-            with open(image_path, "rb") as img_file:
-                image_data = base64.standard_b64encode(img_file.read()).decode("utf-8")
-            
-            # Determine image type
-            file_ext = Path(image_path).suffix.lower()
-            mime_type_map = {
-                ".jpg": "image/jpeg",
-                ".jpeg": "image/jpeg",
-                ".png": "image/png",
-                ".gif": "image/gif",
-                ".webp": "image/webp"
-            }
-            mime_type = mime_type_map.get(file_ext, "image/jpeg")
-            
-            # Build prompt with image context
-            full_prompt = f"{self.system_prompt}\n\nUser Question: {user_message}"
+            # The library can handle PIL images directly
+            img = Image.open(image_path)
             
             # Send to Gemini with image
-            response = self.model.generate_content(
-                [
-                    full_prompt,
-                    {
-                        "mime_type": mime_type,
-                        "data": image_data
-                    }
-                ]
-            )
+            # The system prompt is already part of the model configuration
+            # We can send the user message and image as a list of parts
+            response = self.model.generate_content([user_message, img])
             
             return response.text
         
@@ -286,31 +266,24 @@ Format your answer with:
         chat_history: Optional[list] = None
     ) -> str:
         """Handle PDF file analysis."""
+        # Use Gemini's native file processing API for better results
         try:
-            try:
-                import PyPDF2
-            except ImportError:
-                return "Error: PyPDF2 not installed. Please install it to read PDF files: pip install PyPDF2"
-            
-            content = ""
-            with open(file_path, "rb") as f:
-                reader = PyPDF2.PdfReader(f)
-                # Limit to first 20 pages
-                page_count = min(len(reader.pages), 20)
-                for i in range(page_count):
-                    page = reader.pages[i]
-                    content += page.extract_text() + "\n"
-            
-            # Limit content length
-            if len(content) > 8000:
-                content = content[:8000] + "\n\n[PDF content truncated for length...]"
-            
-            enhanced_message = f"I'm sharing a PDF file '{Path(file_path).name}' (first {page_count} pages) for analysis.\n\nPDF content:\n---\n{content}\n---\n\n{user_message}"
-            
-            return self.chat(enhanced_message, chat_history)
-        
+            print(f"Uploading file to Gemini: {file_path}")
+            # Upload the file and get a file handle
+            pdf_file = genai.upload_file(path=file_path, display_name=Path(file_path).name)
+            print(f"File uploaded successfully: {pdf_file.name}")
+
+            # Create a prompt that includes the file
+            prompt = [
+                f"The user has uploaded the file '{pdf_file.display_name}'. Please analyze it and answer the following question.",
+                pdf_file,
+                user_message
+            ]
+
+            response = self.model.generate_content(prompt)
+            return response.text
         except Exception as e:
-            return f"Error reading PDF file: {str(e)}"
+            return f"Error processing PDF file with Gemini API: {str(e)}"
 
 
 # Initialize and cache the brain instance
@@ -331,4 +304,3 @@ def get_brain(api_key: Optional[str] = None) -> ChemistryAIBrain:
     if _brain_instance is None:
         _brain_instance = ChemistryAIBrain(api_key=api_key)
     return _brain_instance
-

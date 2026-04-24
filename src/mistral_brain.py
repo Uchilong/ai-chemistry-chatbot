@@ -1,6 +1,19 @@
 import os
 from typing import Optional
-from mistralai import Mistral
+from pathlib import Path
+
+try:
+    # mistralai<2 exposed the client at top-level
+    from mistralai import Mistral  # type: ignore
+except ImportError:
+    # mistralai>=2 moved Mistral into mistralai.client
+    from mistralai.client import Mistral  # type: ignore
+
+# PyPDF2 is an optional dependency for PDF processing.
+try:
+    import PyPDF2
+except ImportError:
+    PyPDF2 = None
 
 # Import config for API key and settings
 try:
@@ -21,7 +34,7 @@ class MistralChemistryBrain:
             api_key: Mistral API key. If None, will try to load from MISTRAL_API_KEY env variable.
             model: Model to use (default: mistral-large-latest)
         """
-        self.api_key = api_key or MISTRAL_API_KEY or os.getenv("MISTRAL_API_KEY")
+        self.api_key = api_key or MISTRAL_API_KEY
 
         if not self.api_key:
             raise ValueError(
@@ -87,7 +100,11 @@ Always:
                 max_tokens=2048
             )
 
-            return response.choices[0].message.content
+            content = response.choices[0].message.content
+            if isinstance(content, str):
+                return content
+            # Some SDK versions can return structured message parts.
+            return str(content)
 
         except Exception as e:
             return f"Error processing your question: {str(e)}"
@@ -128,8 +145,6 @@ Always:
         Returns:
             AI's response text
         """
-        from pathlib import Path
-
         if not Path(file_path).exists():
             return f"Error: File not found at {file_path}"
 
@@ -154,7 +169,6 @@ Always:
         chat_history: Optional[list] = None
     ) -> str:
         """Handle text file analysis."""
-        from pathlib import Path
         try:
             with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
                 content = f.read()
@@ -179,13 +193,9 @@ Always:
         chat_history: Optional[list] = None
     ) -> str:
         """Handle PDF file analysis."""
-        from pathlib import Path
         try:
-            try:
-                import PyPDF2
-            except ImportError:
-                return "Error: PyPDF2 not installed. Run: pip install PyPDF2"
-
+            if PyPDF2 is None:
+                return "Error: PyPDF2 is not installed. Please run: pip install PyPDF2"
             content = ""
             with open(file_path, "rb") as f:
                 reader = PyPDF2.PdfReader(f)
