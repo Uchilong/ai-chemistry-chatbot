@@ -16,6 +16,17 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from brain import get_brain
 from mistral_brain import get_mistral_brain
 from ollama_brain import get_ollama_brain
+from user_store import (
+    init_user_store,
+    get_or_create_user,
+    save_chat_event,
+    load_chat_events,
+    save_question,
+    load_questions,
+    add_learning_resource,
+    load_learning_resources,
+    delete_learning_resource,
+)
 from config import (
     GEMINI_API_KEY, MISTRAL_API_KEY, APP_TITLE, APP_ICON,
     SUPPORTED_FILE_TYPES, FILE_UPLOAD_LABEL, FILE_UPLOAD_HELP,
@@ -40,10 +51,14 @@ if "history" not in st.session_state:
     st.session_state.history = []
 if "selected_model" not in st.session_state:
     st.session_state.selected_model = "Mistral (Fast)"
-if "chemistry_level" not in st.session_state:
-    st.session_state.chemistry_level = DEFAULT_CHEMISTRY_LEVEL
-if "response_style" not in st.session_state:
-    st.session_state.response_style = DEFAULT_RESPONSE_STYLE
+if "user_email" not in st.session_state:
+    st.session_state.user_email = ""
+if "user_id" not in st.session_state:
+    st.session_state.user_id = None
+if "learning_resources" not in st.session_state:
+    st.session_state.learning_resources = []
+
+init_user_store()
 
 # ============================================================================
 # 2. INITIALIZE AI BRAINS
@@ -207,21 +222,34 @@ with st.sidebar:
         st.rerun()
 
     st.markdown("---")
-    st.subheader("🎯 Learning Controls")
-    st.session_state.chemistry_level = st.selectbox(
-        "Chemistry level",
-        options=["highschool", "undergrad", "mixed"],
-        index=["highschool", "undergrad", "mixed"].index(st.session_state.chemistry_level)
-        if st.session_state.chemistry_level in {"highschool", "undergrad", "mixed"} else 1,
-        help="Controls depth and complexity of chemistry explanations."
-    )
-    st.session_state.response_style = st.selectbox(
-        "Response style",
-        options=["concise", "balanced", "detailed"],
-        index=["concise", "balanced", "detailed"].index(st.session_state.response_style)
-        if st.session_state.response_style in {"concise", "balanced", "detailed"} else 1,
-        help="Controls answer length and detail level."
-    )
+    st.subheader("👤 Account")
+    if not st.session_state.user_id:
+        email_input = st.text_input(
+            "Sign in with Google email",
+            placeholder="yourname@gmail.com",
+            key="login_email_input"
+        )
+        if st.button("Sign In", use_container_width=True):
+            if email_input and "@" in email_input:
+                user_id = get_or_create_user(email_input)
+                st.session_state.user_id = user_id
+                st.session_state.user_email = email_input.strip().lower()
+                st.session_state.messages = load_chat_events(user_id)
+                st.session_state.history = load_questions(user_id)
+                st.session_state.learning_resources = load_learning_resources(user_id)
+                st.success("Signed in and progress loaded.")
+                st.rerun()
+            else:
+                st.error("Please enter a valid email.")
+    else:
+        st.caption(f"Signed in as: {st.session_state.user_email}")
+        if st.button("Sign Out", use_container_width=True):
+            st.session_state.user_id = None
+            st.session_state.user_email = ""
+            st.session_state.messages = []
+            st.session_state.history = []
+            st.session_state.learning_resources = []
+            st.rerun()
     
     # Chat Management
     col1, col2 = st.columns(2)
@@ -240,6 +268,36 @@ with st.sidebar:
         )
     
     st.markdown("---")
+
+    with st.expander("📚 Learning Resources", expanded=False):
+        if st.session_state.user_id:
+            title = st.text_input("Title", key="resource_title")
+            link = st.text_input("Link", key="resource_link", placeholder="https://...")
+            notes = st.text_area("Notes (optional)", key="resource_notes", height=80)
+            if st.button("Save Resource", use_container_width=True):
+                if title.strip() and link.strip():
+                    add_learning_resource(st.session_state.user_id, title, link, notes)
+                    st.session_state.learning_resources = load_learning_resources(st.session_state.user_id)
+                    st.success("Resource saved.")
+                    st.rerun()
+                else:
+                    st.error("Title and link are required.")
+
+            if st.session_state.learning_resources:
+                for resource in st.session_state.learning_resources:
+                    st.markdown(f"**{resource['title']}**")
+                    st.markdown(f"[{resource['link']}]({resource['link']})")
+                    if resource["notes"]:
+                        st.caption(resource["notes"])
+                    if st.button("Delete", key=f"del_res_{resource['id']}", use_container_width=True):
+                        delete_learning_resource(st.session_state.user_id, resource["id"])
+                        st.session_state.learning_resources = load_learning_resources(st.session_state.user_id)
+                        st.rerun()
+                    st.markdown("---")
+            else:
+                st.info("No saved resources yet.")
+        else:
+            st.info("Sign in to save learning resources.")
     
     # Chat History
     with st.expander("🕰️ Question History", expanded=False):
@@ -333,10 +391,21 @@ if prompt:
             
             new_message["file_name"] = uploaded_file.name
             st.session_state.history.append(f"📎 {prompt[:30]}...")
+            if st.session_state.user_id:
+                save_question(st.session_state.user_id, f"📎 {prompt[:30]}...")
         else:
             st.session_state.history.append(prompt)
+            if st.session_state.user_id:
+                save_question(st.session_state.user_id, prompt)
         
         st.session_state.messages.append(new_message)
+        if st.session_state.user_id:
+            save_chat_event(
+                st.session_state.user_id,
+                role="user",
+                content=prompt,
+                file_name=new_message.get("file_name"),
+            )
         
         # Get AI response
         with st.spinner(f"🤖 {st.session_state.selected_model} is thinking..."):
@@ -348,8 +417,8 @@ if prompt:
                             prompt,
                             image_data,
                             chemistry_context={
-                                "level": st.session_state.chemistry_level,
-                                "style": st.session_state.response_style
+                                "level": DEFAULT_CHEMISTRY_LEVEL,
+                                "style": DEFAULT_RESPONSE_STYLE
                             }
                         )
                     elif st.session_state.selected_model == "Mistral (Fast)":
@@ -357,8 +426,8 @@ if prompt:
                             prompt,
                             image_data,
                             chemistry_context={
-                                "level": st.session_state.chemistry_level,
-                                "style": st.session_state.response_style
+                                "level": DEFAULT_CHEMISTRY_LEVEL,
+                                "style": DEFAULT_RESPONSE_STYLE
                             }
                         )
                     else:  # Ollama
@@ -375,8 +444,8 @@ if prompt:
                         prompt,
                         chat_history=st.session_state.messages[:-1],
                         chemistry_context={
-                            "level": st.session_state.chemistry_level,
-                            "style": st.session_state.response_style
+                            "level": DEFAULT_CHEMISTRY_LEVEL,
+                            "style": DEFAULT_RESPONSE_STYLE
                         }
                     )
                 
@@ -384,6 +453,12 @@ if prompt:
                     "role": "assistant",
                     "content": ai_response
                 })
+                if st.session_state.user_id:
+                    save_chat_event(
+                        st.session_state.user_id,
+                        role="assistant",
+                        content=ai_response,
+                    )
                 
             except Exception as e:
                 st.error(f"❌ Error: {str(e)}")
