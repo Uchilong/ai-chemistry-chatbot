@@ -112,66 +112,74 @@ else:
     code_bg = "#f3f4f6"
     code_text = "#111827"
 
-st.markdown(f"""
+css = """
     <style>
     /* Gemini-like clean layout */
-    .block-container {
+    .block-container {{
         max-width: 980px;
         padding-top: 1.5rem;
         padding-bottom: 1rem;
-    }
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
+    }}
+    #MainMenu {{visibility: hidden;}}
+    footer {{visibility: hidden;}}
 
-    .app-header {
+    .app-header {{
         text-align: center;
         margin-bottom: 1rem;
-    }
-    .app-header h1 {
+    }}
+    .app-header h1 {{
         font-size: 2rem;
         font-weight: 600;
         margin-bottom: 0.25rem;
-    }
-    .app-header p {
+    }}
+    .app-header p {{
         color: #6b7280;
         margin-top: 0;
-    }
+    }}
 
-    .stChatMessage {
+    .stChatMessage {{
         border-radius: 16px;
         padding: 12px 14px;
-        border: 1px solid {chat_border};
-        background-color: {chat_bg};
-        color: {chat_text} !important;
-    }
+        border: 1px solid __CHAT_BORDER__;
+        background-color: __CHAT_BG__;
+        color: __CHAT_TEXT__ !important;
+    }}
 
     .stChatMessage p,
     .stChatMessage li,
     .stChatMessage span,
     .stChatMessage div,
-    .stChatMessage label {
-        color: {chat_text} !important;
-    }
+    .stChatMessage label {{
+        color: __CHAT_TEXT__ !important;
+    }}
 
-    .stChatMessage code {
-        color: {code_text} !important;
-        background-color: {code_bg} !important;
-    }
+    .stChatMessage code {{
+        color: __CODE_TEXT__ !important;
+        background-color: __CODE_BG__ !important;
+    }}
 
-    .stChatMessage pre {
+    .stChatMessage pre {{
         color: #e5e7eb !important;
         background-color: #111827 !important;
-    }
+    }}
 
-    .stMarkdown p, .stMarkdown li {
+    .stMarkdown p, .stMarkdown li {{
         color: inherit;
-    }
+    }}
 
-    [data-testid="stSidebar"] {
+    [data-testid="stSidebar"] {{
         border-right: 1px solid #e6e8ee;
-    }
+    }}
     </style>
-    """, unsafe_allow_html=True)
+    """
+css = (
+    css.replace("__CHAT_BORDER__", chat_border)
+    .replace("__CHAT_BG__", chat_bg)
+    .replace("__CHAT_TEXT__", chat_text)
+    .replace("__CODE_TEXT__", code_text)
+    .replace("__CODE_BG__", code_bg)
+)
+st.markdown(css, unsafe_allow_html=True)
 
 # ============================================================================
 # 4. SIDEBAR - MODEL SELECTION & HISTORY
