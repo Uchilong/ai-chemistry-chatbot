@@ -4,5 +4,13 @@ google-generativeai
 python-dotenv
 requests
 mistralai
+groq
 PyPDF2
 pydantic
+# Backend dependencies
+fastapi
+uvicorn
+pubchempy
+python-multipart
+# Free OCR alternatives
+pix2text

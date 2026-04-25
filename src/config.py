@@ -9,6 +9,7 @@ load_dotenv()
 # Initialize API keys, which will be populated by secrets or env vars.
 GEMINI_API_KEY = ""
 MISTRAL_API_KEY = ""
+GROQ_API_KEY = ""
 
 # Try to load from Streamlit secrets first (for cloud deployment)
 try:
@@ -17,6 +18,7 @@ try:
     # which is the desired behavior to fall back to environment variables.
     GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY", "")
     MISTRAL_API_KEY = st.secrets.get("MISTRAL_API_KEY", "")
+    GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "")
 except Exception:
     # This block will be entered if:
     # 1. `streamlit` is not installed (ImportError).
@@ -29,6 +31,8 @@ if not GEMINI_API_KEY:
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 if not MISTRAL_API_KEY:
     MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY", "")
+if not GROQ_API_KEY:
+    GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 
 # App Configuration
 APP_TITLE = "🧪 AI Trợ lý Hóa học"
@@ -45,13 +49,25 @@ MODEL_CONFIGS = {
         "name": "🧠 Gemini (Accurate Thinking)",
         "description": "Accurate, thorough analysis with detailed reasoning. Best for complex chemistry problems.",
         "speed": "Standard",
-        "best_for": "In-depth analysis, calculations, structure analysis"
+        "best_for": "In-depth analysis, calculations, structure analysis",
+        "rate_limit": "15 requests/minute",
+        "rate_limit_details": "Free tier: 15 RPM, 1M tokens/day"
     },
     "mistral": {
         "name": "⚡ Mistral (Fast Thinking)",
         "description": "Fast, concise answers. Perfect for quick chemistry questions and definitions.",
         "speed": "Fast",
-        "best_for": "Quick answers, definitions, fast lookup"
+        "best_for": "Quick answers, definitions, fast lookup",
+        "rate_limit": "5 requests/second",
+        "rate_limit_details": "Free tier: 5 RPS, 250M tokens/month"
+    },
+    "groq": {
+        "name": "🚀 Groq (Ultra Fast)",
+        "description": "Extremely fast responses with excellent performance. Ideal for rapid chemistry tutoring.",
+        "speed": "Ultra Fast",
+        "best_for": "Real-time tutoring, quick calculations, fast responses",
+        "rate_limit": "30 requests/minute",
+        "rate_limit_details": "Free tier: 30 RPM, 14,400 requests/day"
     }
 }
 
