@@ -114,7 +114,7 @@ export default function ChatPage() {
       if (!response.body) return;
 
       const reader = response.body.getReader();
-      const decoder = new TextEncoder();
+      const decoder = new TextDecoder();
       let assistantContent = '';
       
       const assistantId = (Date.now() + 1).toString();
@@ -124,7 +124,7 @@ export default function ChatPage() {
         const { done, value } = await reader.read();
         if (done) break;
         
-        const chunk = new TextDecoder().decode(value);
+        const chunk = decoder.decode(value);
         assistantContent += chunk;
         
         setMessages(prev => prev.map(m => 
@@ -293,14 +293,14 @@ export default function ChatPage() {
                         remarkPlugins={[remarkGfm, remarkMath]}
                         rehypePlugins={[rehypeKatex]}
                         components={{
-                          p: ({children}) => <p className="mb-2 last:mb-0">{children}</p>,
-                          ul: ({children}) => <ul className="list-disc ml-4 mb-2">{children}</ul>,
-                          ol: ({children}) => <ol className="list-decimal ml-4 mb-2">{children}</ol>,
-                          li: ({children}) => <li className="mb-1">{children}</li>,
-                          code: ({children}) => <code className="bg-white/10 px-1 rounded text-sm font-mono">{children}</code>,
-                          strong: ({children}) => <strong className="font-bold text-white">{children}</strong>,
-                          h3: ({children}) => <h3 className="font-bold text-white text-base mt-3 mb-1">{children}</h3>,
-                          h4: ({children}) => <h4 className="font-semibold text-white text-sm mt-2 mb-1">{children}</h4>,
+                          p: ({children}: any) => <p className="mb-2 last:mb-0">{children}</p>,
+                          ul: ({children}: any) => <ul className="list-disc ml-4 mb-2">{children}</ul>,
+                          ol: ({children}: any) => <ol className="list-decimal ml-4 mb-2">{children}</ol>,
+                          li: ({children}: any) => <li className="mb-1">{children}</li>,
+                          code: ({children}: any) => <code className="bg-white/10 px-1 rounded text-sm font-mono">{children}</code>,
+                          strong: ({children}: any) => <strong className="font-bold text-white">{children}</strong>,
+                          h3: ({children}: any) => <h3 className="font-bold text-white text-base mt-3 mb-1">{children}</h3>,
+                          h4: ({children}: any) => <h4 className="font-semibold text-white text-sm mt-2 mb-1">{children}</h4>,
                         }}
                       >
                         {m.content || (m.file ? "Đã gửi tệp đính kèm." : "")}

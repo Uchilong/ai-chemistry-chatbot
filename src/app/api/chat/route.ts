@@ -1,20 +1,19 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { getModel } from "@/lib/gemini";
 import { NextResponse } from "next/server";
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+import { Buffer } from "node:buffer";
 
 export async function POST(req: Request) {
   try {
     const { message, history, model: modelName, fileData, fileName, mimeType } = await req.json();
 
-    const model = genAI.getGenerativeModel({ model: modelName || "gemini-3.1-flash-lite-preview" });
+    const model = getModel(modelName || "gemini-3.1-flash-lite-preview");
 
     let promptParts: any[] = [{ text: message || "Hãy phân tích tệp này." }];
 
     // Handle File Uploads
     if (fileData) {
       const buffer = Buffer.from(fileData.split(',')[1], 'base64');
-      
+
       if (mimeType?.startsWith('image/')) {
         // Images: send inline to Gemini vision
         promptParts.push({
@@ -26,7 +25,7 @@ export async function POST(req: Request) {
       } else {
         // Documents: try server-side parsing, fall back gracefully
         try {
-          const { parseFile } = await import("@/lib/file-parser");
+          const { parseFile } = await import("@/lib/file_parser");
           const extractedText = await parseFile(buffer, mimeType);
           if (extractedText) {
             promptParts[0].text = `Nội dung từ tệp "${fileName}":\n\n${extractedText}\n\n---\n\nCâu hỏi: ${message}`;
