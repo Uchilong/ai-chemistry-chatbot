@@ -1,7 +1,7 @@
 import { neon } from '@neondatabase/serverless';
 import bcrypt from 'bcryptjs';
 
-const sql = neon(process.env.DATABASE_URL!);
+const sql = neon(process.env.DATABASE_URL || "postgresql://placeholder:placeholder@localhost:5432/placeholder");
 
 export interface User {
   id: number;
