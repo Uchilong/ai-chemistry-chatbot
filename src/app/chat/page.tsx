@@ -19,7 +19,9 @@ import {
   Zap,
   Trash2,
   Menu,
-  X
+  X,
+  Copy,
+  Check
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -52,7 +54,22 @@ export default function ChatPage() {
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const copyToClipboard = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
 
   // Fetch chat history
   const fetchChats = async () => {
@@ -105,11 +122,6 @@ export default function ChatPage() {
     }
   };
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  useEffect(scrollToBottom, [messages]);
 
   const toBase64 = (file: File) => new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
@@ -340,7 +352,7 @@ export default function ChatPage() {
       {/* Main Chat Area */}
       <main className="flex-1 flex flex-col relative overflow-hidden bg-gradient-to-b from-[#050505] to-[#0a0a0a]">
         {/* Top Header */}
-        <header className="p-4 border-b border-white/5 flex items-center justify-between bg-[#050505]/60 backdrop-blur-2xl z-10 sticky top-0">
+        <header className={`p-4 border-b border-white/5 flex items-center justify-between bg-[#050505]/60 backdrop-blur-2xl z-10 sticky top-0 transition-all ${!isSidebarOpen ? 'pl-16 lg:pl-4' : 'pl-4'}`}>
           <div className="flex items-center gap-4">
             {!isSidebarOpen && (
               <button onClick={() => setIsSidebarOpen(true)} className="hidden lg:flex p-2.5 hover:bg-white/5 rounded-xl border border-white/5 transition-colors">
@@ -349,18 +361,11 @@ export default function ChatPage() {
             )}
             <div className="flex items-center gap-3 bg-white/5 px-4 py-2 rounded-2xl border border-white/10 hover:border-primary/30 transition-all shadow-inner">
               <Sparkles className="w-4 h-4 text-primary animate-pulse" />
-              <select 
-                value={selectedModel}
-                onChange={(e) => setSelectedModel(e.target.value)}
-                className="bg-transparent text-sm font-semibold focus:outline-none cursor-pointer text-white/90"
-              >
-                <option value="Gemini AI">Gemini 3.1 Flash</option>
-                <option value="Gemini Pro">Gemini 3.1 Pro</option>
-              </select>
+              <span className="text-sm font-semibold text-white/90">Gemini 3.1 Flash</span>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button className="p-2.5 hover:bg-white/5 rounded-xl border border-white/5 transition-colors"><Settings className="w-5 h-5 text-gray-500" /></button>
+            {/* Settings removed for cleaner UI */}
           </div>
         </header>
 
@@ -412,7 +417,7 @@ export default function ChatPage() {
                       </div>
                     </div>
                   )}
-                  <div className={`px-6 py-4 rounded-[2rem] shadow-sm ${
+                  <div className={`px-6 py-4 rounded-[2rem] shadow-sm relative group/msg ${
                     m.role === 'user' 
                     ? 'bg-primary text-white rounded-tr-none' 
                     : 'bg-white/5 text-gray-200 border border-white/10 rounded-tl-none backdrop-blur-sm'
@@ -435,6 +440,19 @@ export default function ChatPage() {
                         {m.content || (m.file ? "Đã gửi tệp đính kèm." : "")}
                       </ReactMarkdown>
                     </div>
+                    
+                    {/* Copy Button */}
+                    <button 
+                      onClick={() => copyToClipboard(m.content, m.id)}
+                      className={`absolute top-2 ${m.role === 'user' ? '-left-12' : '-right-12'} p-2 rounded-xl bg-white/5 border border-white/10 opacity-0 group-hover/msg:opacity-100 transition-all hover:bg-white/10`}
+                      title="Sao chép tin nhắn"
+                    >
+                      {copiedId === m.id ? (
+                        <Check className="w-4 h-4 text-green-400" />
+                      ) : (
+                        <Copy className="w-4 h-4 text-gray-400" />
+                      )}
+                    </button>
                   </div>
                 </div>
               </motion.div>
