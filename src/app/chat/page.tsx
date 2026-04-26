@@ -444,7 +444,7 @@ export default function ChatPage() {
                     {/* Copy Button */}
                     <button 
                       onClick={() => copyToClipboard(m.content, m.id)}
-                      className={`absolute top-2 ${m.role === 'user' ? '-left-12' : '-right-12'} p-2 rounded-xl bg-white/5 border border-white/10 opacity-0 group-hover/msg:opacity-100 transition-all hover:bg-white/10`}
+                      className={`absolute top-2 ${m.role === 'user' ? '-left-12' : '-right-12'} p-2 rounded-xl bg-white/5 border border-white/10 transition-all hover:bg-white/10 shadow-sm`}
                       title="Sao chép tin nhắn"
                     >
                       {copiedId === m.id ? (
