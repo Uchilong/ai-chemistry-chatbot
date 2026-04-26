@@ -2,6 +2,7 @@ import { getModel } from "@/lib/gemini";
 import { NextResponse } from "next/server";
 import { Buffer } from "node:buffer";
 import { parseFile } from "@/lib/file_parser";
+import { addMessage, createChat } from "@/lib/db";
 
 export async function POST(req: Request) {
   console.log("Chat API: Request received");
@@ -73,6 +74,8 @@ export async function POST(req: Request) {
     const result = await chat.sendMessageStream(promptParts);
 
     const encoder = new TextEncoder();
+    let assistantContent = "";
+
     const stream = new ReadableStream({
       async start(controller) {
         console.log("Chat API: Stream started");
@@ -80,10 +83,14 @@ export async function POST(req: Request) {
           for await (const chunk of result.stream) {
             const chunkText = chunk.text();
             if (chunkText) {
+              assistantContent += chunkText;
               controller.enqueue(encoder.encode(chunkText));
             }
           }
           console.log("Chat API: Stream finished successfully");
+          if (activeChatId && assistantContent) {
+            await addMessage(Number(activeChatId), 'assistant', assistantContent);
+          }
           controller.close();
         } catch (streamError) {
           console.error("Chat API: Streaming error:", streamError);
@@ -93,7 +100,10 @@ export async function POST(req: Request) {
     });
 
     return new Response(stream, {
-      headers: { "Content-Type": "text/plain; charset=utf-8" },
+      headers: { 
+        "Content-Type": "text/plain; charset=utf-8",
+        "x-chat-id": String(activeChatId || "")
+      },
     });
   } catch (error) {
     console.error("Chat API Fatal Error:", error);
