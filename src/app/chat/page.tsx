@@ -201,12 +201,28 @@ export default function ChatPage() {
     }
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.name.endsWith('.docx') || file.name.endsWith('.doc') || file.type.includes('word')) {
+        alert("⚠️ Lưu ý quan trọng: Để AI có thể nhìn thấy hình ảnh, sơ đồ và công thức hóa học chính xác nhất, bạn vui lòng lưu tệp Word sang định dạng PDF (File > Save as PDF) rồi mới gửi nhé. Xin cảm ơn!");
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        return;
+      }
+      setSelectedFile(file);
+    }
+  };
+
   const handlePaste = (e: React.ClipboardEvent) => {
     const items = e.clipboardData.items;
     for (let i = 0; i < items.length; i++) {
       if (items[i].kind === 'file') {
         const file = items[i].getAsFile();
         if (file) {
+          if (file.name.endsWith('.docx') || file.type.includes('word')) {
+            alert("⚠️ Vui lòng chuyển file Word sang PDF để AI hỗ trợ tốt nhất nhé!");
+            return;
+          }
           setSelectedFile(file);
           break;
         }
@@ -216,6 +232,7 @@ export default function ChatPage() {
 
   return (
     <div className="flex h-screen bg-[#050505] text-[#e5e5e5] font-sans selection:bg-primary/30">
+      {/* ... rest of the component ... */}
       {/* Sidebar */}
       <AnimatePresence mode="wait">
         {isSidebarOpen && (
@@ -443,7 +460,8 @@ export default function ChatPage() {
               <input 
                 type="file"
                 ref={fileInputRef}
-                onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                onChange={handleFileChange}
+                accept=".pdf,image/*"
                 className="hidden"
               />
               <button 
@@ -477,7 +495,7 @@ export default function ChatPage() {
             <div className="mt-4 flex items-center justify-center gap-6">
               <p className="text-[10px] text-gray-700 font-bold uppercase tracking-[0.2em] flex items-center gap-2">
                 <span className="w-1 h-1 bg-gray-800 rounded-full" />
-                Hỗ trợ PDF, Word, Ảnh
+                Hỗ trợ PDF (đầy đủ ảnh), Ảnh trực tiếp
               </p>
               <p className="text-[10px] text-gray-700 font-bold uppercase tracking-[0.2em] flex items-center gap-2">
                 <span className="w-1 h-1 bg-gray-800 rounded-full" />

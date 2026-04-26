@@ -40,18 +40,28 @@ export async function POST(req: Request) {
 
     if (fileData) {
       console.log("Chat API: Processing file...", { fileName, mimeType });
-      const buffer = Buffer.from(fileData.split(',')[1], 'base64');
+      const base64Data = fileData.split(',')[1];
+      const buffer = Buffer.from(base64Data, 'base64');
 
       if (mimeType?.startsWith('image/')) {
         promptParts.push({
           inlineData: {
-            data: fileData.split(',')[1],
+            data: base64Data,
             mimeType: mimeType
+          }
+        });
+      } else if (mimeType === 'application/pdf') {
+        // Native PDF support: Gemini will see text AND images
+        console.log("Chat API: Sending PDF directly to Gemini (Native Support)");
+        promptParts.push({
+          inlineData: {
+            data: base64Data,
+            mimeType: 'application/pdf'
           }
         });
       } else {
         try {
-          console.log("Chat API: Parsing document...");
+          console.log("Chat API: Parsing document text...");
           const extractedText = await parseFile(buffer, mimeType);
           if (extractedText) {
             promptParts[0].text = `Nội dung từ tệp "${fileName}":\n\n${extractedText}\n\n---\n\nCâu hỏi: ${message}`;
