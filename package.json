@@ -11,9 +11,7 @@
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "@types/bcryptjs": "^2.4.6",
-    "@types/better-sqlite3": "^7.6.13",
     "bcryptjs": "^3.0.3",
-    "better-sqlite3": "^12.9.0",
     "clsx": "^2.1.1",
     "framer-motion": "^12.38.0",
     "katex": "^0.16.45",
