@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
+import { useSession, signOut } from 'next-auth/react';
 import { 
   Send, 
   Paperclip, 
@@ -37,6 +38,9 @@ interface Message {
 }
 
 export default function ChatPage() {
+  const { data: session } = useSession();
+  const userName = session?.user?.name || 'Người dùng';
+  const userInitial = userName.charAt(0).toUpperCase();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -189,13 +193,15 @@ export default function ChatPage() {
             <div className="p-4 border-t border-white/5">
               <div className="flex items-center gap-3 p-3 rounded-2xl hover:bg-white/5 cursor-pointer transition-all border border-transparent hover:border-white/10">
                 <div className="w-10 h-10 bg-gradient-to-tr from-primary to-accent rounded-full flex items-center justify-center font-bold text-white shadow-lg shadow-primary/20">
-                  U
+                  {userInitial}
                 </div>
                 <div className="flex-1 overflow-hidden">
-                  <p className="text-sm font-semibold truncate text-white">Uchilong</p>
-                  <p className="text-[10px] text-primary font-bold uppercase tracking-wider">Premium Plan</p>
+                  <p className="text-sm font-semibold truncate text-white">{userName}</p>
+                  <p className="text-[10px] text-primary font-bold uppercase tracking-wider">Đang hoạt động</p>
                 </div>
-                <LogOut className="w-4 h-4 text-gray-600 hover:text-red-400 transition-colors" />
+                <button onClick={() => signOut({ callbackUrl: '/login' })} title="Đăng xuất">
+                  <LogOut className="w-4 h-4 text-gray-600 hover:text-red-400 transition-colors" />
+                </button>
               </div>
             </div>
           </motion.aside>
