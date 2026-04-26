@@ -1,197 +1,147 @@
-# 🧪 AI Chemistry Chatbot
+# 🧪 AI Trợ lý Hóa học
 
-A comprehensive AI-powered chemistry tutor and calculation assistant built with multiple AI models and specialized chemistry tools.
+A modern, full-stack AI chemistry assistant built with **Next.js 16**, powered by **Google Gemini 3.1**, featuring real-time streaming, file uploads, and rich Markdown + LaTeX rendering.
 
-## 🎯 What This Does
+> **Live URL**: Deploy to [Vercel](https://vercel.com) by connecting this repo and setting the root directory to `web/`.
 
-The AI Chemistry Chatbot is an intelligent learning assistant that helps students and educators with:
+---
 
-- **📚 Chemistry Tutoring**: Interactive Q&A about chemical concepts, reactions, and principles
-- **🧮 Chemical Calculations**: Equation balancing, molar mass calculations, and stoichiometry
-- **🎨 Visual Learning**: Generate chemistry diagrams and illustrations
-- **📁 File Analysis**: OCR for chemical formulas from images and PDFs
-- **💾 Personal Learning**: Save resources, track progress, and maintain chat history
+## ✨ Features
 
-## 🚀 Key Features
+- **🤖 AI Streaming** — Real-time token-by-token responses from Gemini 3.1 Flash Lite
+- **📄 File Upload** — Supports PDF, Word (.docx), plain text, and images (PNG, JPG, WebP)
+- **📋 Ctrl+V Paste** — Paste images or files directly from your clipboard into the chat
+- **🧮 LaTeX / Math Rendering** — Chemical formulas and equations rendered beautifully via KaTeX
+- **📝 Markdown Support** — Bold, lists, headings, code blocks — all properly formatted
+- **🔐 Auth Shell** — Login and Register pages with NextAuth.js integration
+- **💬 Chat History** — Per-session conversation memory with sidebar navigation
+- **🌙 Premium Dark UI** — Glassmorphism, Framer Motion animations, and a fully responsive layout
 
-### 🤖 Multi-Model AI Support
-- **Gemini (Accurate)**: Advanced reasoning with image analysis
-- **Mistral (Fast)**: Quick text responses for basic questions
-- **Groq (Ultra Fast)**: Lightning-fast responses for simple queries
-- **Ollama (Local)**: Privacy-focused local model option
+---
 
-### 🔬 Chemistry Tools
-- **Equation Balancing**: Balance chemical equations with step-by-step solutions
-- **Molar Mass Calculator**: Calculate molecular weights for 20+ common compounds
-- **Stoichiometry**: Basic mole ratio calculations (g ↔ mol conversions)
-- **Image Generation**: Create chemistry diagrams and illustrations
+## 🗂️ Project Structure
 
-### 📱 User Features
-- **Account System**: Gmail-based login for personalized experience
-- **Resource Library**: Save and organize learning materials
-- **Chat History**: Access previous questions and conversations
-- **File Upload**: Analyze images and PDFs with OCR capabilities
+```
+ai-chemistry-chatbot/
+├── web/                        # ✅ Active Next.js Application
+│   ├── src/
+│   │   ├── app/
+│   │   │   ├── page.tsx        # Landing page
+│   │   │   ├── login/          # Login page
+│   │   │   ├── register/       # Register page
+│   │   │   ├── chat/           # Main chat interface
+│   │   │   ├── api/
+│   │   │   │   ├── chat/       # Gemini AI streaming endpoint
+│   │   │   │   └── auth/       # NextAuth.js handler
+│   │   │   └── globals.css     # Design system (glassmorphism, KaTeX)
+│   │   └── lib/
+│   │       └── file-parser.ts  # Server-side PDF & Word parser
+│   ├── .env                    # API keys (see setup below)
+│   └── package.json
+│
+└── python_legacy/              # 🗃️ Original Streamlit app (archived)
+    ├── src/brain.py
+    └── ui/app.py
+```
 
-## 🛠️ Tech Stack
-
-### Backend
-- **Python**: Core programming language
-- **FastAPI**: RESTful API framework
-- **SQLite**: User data and chat history storage
-- **Multiple AI APIs**: Gemini, Mistral, Groq, Ollama integration
-
-### Frontend
-- **Streamlit**: Web interface framework
-- **Responsive Design**: Mobile-friendly layout
-- **Real-time Chat**: Interactive messaging system
-
-### External Services
-- **Pollinations AI**: Image generation
-- **Wolfram Alpha**: Advanced calculations (optional)
-- **EasyOCR**: Text recognition from images
-
-## 📋 Tool Limitations
-
-### ✅ What Works Well
-- Basic chemistry tutoring and Q&A
-- Simple equation balancing (H₂ + O₂ → H₂O)
-- Molar mass calculations for common compounds
-- Image generation for basic chemistry concepts
-- File analysis for chemical formulas
-
-### ❌ Current Limitations
-- Complex stoichiometry (C₄H₁₀ + O₂ → CO₂ + H₂O)
-- Advanced chemical calculations
-- 3D molecular structures
-- Video/audio file analysis
-- Real-time chemical simulations
+---
 
 ## 🚀 Getting Started
 
 ### Prerequisites
-- Python 3.8 or higher
-- Git for cloning the repository
+- Node.js 20+
+- A [Google AI Studio](https://aistudio.google.com/app/apikey) API key
 
-### Installation
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/yourusername/ai-chemistry-chatbot.git
-   cd ai-chemistry-chatbot
-   ```
-
-2. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. **Set up environment variables**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your API keys
-   ```
-
-4. **Run the application**
-   ```bash
-   streamlit run ui/app.py
-   ```
-
-### 🔑 API Keys Required
-
-Add these to your `.env` file:
+### 1. Clone and Install
 
 ```bash
-# Required for basic functionality
+git clone https://github.com/Uchilong/ai-chemistry-chatbot.git
+cd ai-chemistry-chatbot/web
+npm install
+```
+
+### 2. Set up Environment Variables
+
+Create `web/.env`:
+
+```env
 GEMINI_API_KEY=your_gemini_api_key_here
-
-# Optional but recommended
-MISTRAL_API_KEY=your_mistral_api_key_here
-GROQ_API_KEY=your_groq_api_key_here
-WOLFRAM_APP_ID=your_wolfram_app_id_here
-POLLINATIONS_API_KEY=your_pollinations_api_key_here
+NEXTAUTH_SECRET=your_random_secret_here
+NEXTAUTH_URL=http://localhost:3000
 ```
 
-### 📍 Where to Get API Keys
+### 3. Run Locally
 
-- **Gemini**: https://aistudio.google.com/app/apikey
-- **Mistral**: https://console.mistral.ai/api-keys/
-- **Groq**: https://console.groq.com/keys
-- **Wolfram Alpha**: https://developer.wolframalpha.com/
-- **Pollinations**: https://pollinations.ai/
-
-## 🎯 Usage Examples
-
-### Chemistry Tutoring
-```
-User: What is the difference between ionic and covalent bonds?
-AI: Ionic bonds involve transfer of electrons between atoms...
-```
-
-### Equation Balancing
-```
-User: Balance: Fe + O2 -> Fe2O3
-AI: 4Fe + 3O2 → 2Fe₂O₃
-```
-
-### Molar Mass Calculation
-```
-User: Calculate molar mass of H2SO4
-AI: 98.079 g/mol
-```
-
-### Image Generation
-```
-User: Show me a water molecule
-AI: [Generates H₂O diagram]
-```
-
-## 🏗️ Project Structure
-
-```
-ai-chemistry-chatbot/
-├── ui/                 # Streamlit frontend
-│   └── app.py          # Main web interface
-├── backend/            # FastAPI backend
-│   ├── tools/          # Chemistry tools
-│   └── core/           # Configuration
-├── src/                # AI brains and logic
-├── data/               # Database files
-├── .env.example        # Environment template
-└── requirements.txt    # Dependencies
-```
-
-## 🔧 Development
-
-### Running Tests
 ```bash
-python -m pytest tests/
+cd web
+npm run dev
 ```
 
-### Development Mode
-```bash
-# Backend
-uvicorn backend.main:app --reload
-
-# Frontend
-streamlit run ui/app.py --server.port 8501
-```
-
-## 📄 License
-
-This project is open source and available under the [MIT License](LICENSE).
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## 📞 Support
-
-For issues and questions:
-- Create an issue on GitHub
-- Check the limitations section above
-- Ensure all API keys are properly configured
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
-**🧪 Built for the AI Chemistry Hackathon**  
-*Making chemistry education accessible and interactive*
+## 🧠 AI Model
+
+This app uses **`gemini-3.1-flash-lite-preview`** by default, with **`gemini-3.1-pro-preview`** available as an option in the chat interface.
+
+Supported models on this API key:
+- `gemini-3.1-flash-lite-preview` ⚡ (Default — fast, efficient)
+- `gemini-3.1-pro-preview` 🧠 (Advanced reasoning)
+
+---
+
+## 📁 File Support
+
+| File Type | Extension | Handling |
+|-----------|-----------|----------|
+| Images | `.jpg`, `.png`, `.webp`, `.gif` | Sent directly to Gemini vision API |
+| PDF | `.pdf` | Parsed server-side with `pdf-parse` |
+| Word | `.docx` | Parsed server-side with `mammoth` |
+| Text | `.txt` | Read as UTF-8 |
+
+---
+
+## 🛠️ Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Framework | Next.js 16 (App Router) |
+| AI | Google Generative AI (`@google/generative-ai`) |
+| Auth | NextAuth.js |
+| Styling | Tailwind CSS v4 + Custom Glassmorphism |
+| Animations | Framer Motion |
+| Icons | Lucide React |
+| Markdown | `react-markdown` + `remark-gfm` |
+| Math | `rehype-katex` + `remark-math` |
+| File Parsing | `mammoth` (Word), `pdf-parse` (PDF) |
+
+---
+
+## ☁️ Deploy to Vercel
+
+1. Push this repo to GitHub
+2. Connect to [Vercel](https://vercel.com)
+3. Set **Root Directory** → `web`
+4. Add Environment Variables:
+   - `GEMINI_API_KEY`
+   - `NEXTAUTH_SECRET`
+   - `NEXTAUTH_URL` (your Vercel URL)
+5. Deploy!
+
+---
+
+## 📜 Legacy Python App
+
+The original Streamlit chatbot is preserved in [`python_legacy/`](./python_legacy/). To run it:
+
+```bash
+pip install -r python_legacy/requirements.txt
+streamlit run python_legacy/ui/app.py
+```
+
+---
+
+## 📄 License
+
+MIT © [Uchilong](https://github.com/Uchilong)
