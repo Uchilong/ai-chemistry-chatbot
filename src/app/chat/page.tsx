@@ -238,7 +238,10 @@ export default function ChatPage() {
             </div>
 
             <div className="p-4 flex-1 overflow-y-auto space-y-4 custom-scrollbar">
-              <button className="w-full py-3.5 px-4 rounded-2xl border border-white/10 hover:border-primary/40 hover:bg-white/5 transition-all flex items-center gap-3 text-sm font-medium text-gray-400 hover:text-white group">
+              <button 
+                onClick={handleNewChat}
+                className="w-full py-3.5 px-4 rounded-2xl border border-white/10 hover:border-primary/40 hover:bg-white/5 transition-all flex items-center gap-3 text-sm font-medium text-gray-400 hover:text-white group"
+              >
                 <Plus className="w-4 h-4 group-hover:scale-110 transition-transform" />
                 Cuộc trò chuyện mới
               </button>
