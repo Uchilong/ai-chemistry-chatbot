@@ -14,11 +14,22 @@ export default function LandingPage() {
       </div>
 
       <nav className="relative z-10 flex items-center justify-between p-6 max-w-7xl mx-auto">
-        <div className="flex items-center gap-2">
-          <div className="p-2 bg-primary/20 rounded-lg">
-            <Beaker className="w-6 h-6 text-primary" />
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            {/* User needs to save the uploaded image as public/logo.png */}
+            <img src="/logo.png" alt="MITC Logo" className="h-12 w-12 object-contain bg-white rounded-full p-0.5" />
+            <div className="hidden sm:flex flex-col">
+              <span className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">Trường CĐ Công thương Miền trung</span>
+              <span className="text-sm font-bold text-white">Khoa Giáo dục phổ thông</span>
+            </div>
           </div>
-          <span className="text-xl font-bold text-white tracking-tight">Hóa Học AI</span>
+          <div className="w-px h-10 bg-white/10 hidden md:block mx-2"></div>
+          <div className="flex items-center gap-2">
+            <div className="p-2 bg-primary/20 rounded-lg hidden sm:block">
+              <Beaker className="w-5 h-5 text-primary" />
+            </div>
+            <span className="text-xl font-bold text-white tracking-tight">Hóa Học AI</span>
+          </div>
         </div>
         <div className="flex items-center gap-6">
           <Link href="/login" className="text-gray-400 hover:text-white transition-colors">Đăng nhập</Link>

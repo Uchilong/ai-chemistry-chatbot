@@ -282,12 +282,21 @@ export default function ChatPage() {
             className="fixed lg:relative w-72 h-full border-r border-white/5 bg-[#0a0a0a] flex flex-col z-40 shadow-2xl"
           >
             <div className="p-5 border-b border-white/5 flex items-center justify-between">
-              <Link href="/" className="flex items-center gap-3 group">
-                <div className="p-2 bg-primary/20 rounded-xl group-hover:bg-primary/30 transition-colors">
-                  <Beaker className="w-6 h-6 text-primary" />
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center gap-2">
+                  <img src="/logo.png" alt="MITC Logo" className="h-8 w-8 object-contain bg-white rounded-full p-0.5" />
+                  <div className="flex flex-col">
+                    <span className="text-[8px] uppercase tracking-wider text-gray-400 font-semibold leading-tight">Trường CĐ Công thương Miền trung</span>
+                    <span className="text-[11px] font-bold text-white leading-tight">Khoa Giáo dục phổ thông</span>
+                  </div>
                 </div>
-                <span className="font-bold text-lg tracking-tight text-white">Hóa Học AI</span>
-              </Link>
+                <Link href="/" className="flex items-center gap-2 group w-fit">
+                  <div className="p-1.5 bg-primary/20 rounded-lg group-hover:bg-primary/30 transition-colors">
+                    <Beaker className="w-4 h-4 text-primary" />
+                  </div>
+                  <span className="font-bold text-sm tracking-tight text-white/90">Hóa Học AI</span>
+                </Link>
+              </div>
               <button onClick={() => setIsSidebarOpen(false)} className="p-2 hover:bg-white/5 rounded-lg">
                 <X className="w-5 h-5 text-gray-500" />
               </button>
