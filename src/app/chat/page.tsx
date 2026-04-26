@@ -40,6 +40,7 @@ interface Message {
 export default function ChatPage() {
   const { data: session } = useSession();
   const userName = session?.user?.name || 'Người dùng';
+  const userId = (session?.user as any)?.id;
   const userInitial = userName.charAt(0).toUpperCase();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -47,8 +48,58 @@ export default function ChatPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [selectedModel, setSelectedModel] = useState('Gemini AI');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [chats, setChats] = useState<any[]>([]);
+  const [currentChatId, setCurrentChatId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Fetch chat history
+  const fetchChats = async () => {
+    if (!userId) return;
+    try {
+      const res = await fetch('/api/chats');
+      const data = await res.json();
+      if (Array.isArray(data)) setChats(data);
+    } catch (err) {
+      console.error("Fetch chats error:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchChats();
+  }, [userId]);
+
+  const loadChat = async (id: string) => {
+    setIsLoading(true);
+    setCurrentChatId(id);
+    try {
+      const res = await fetch(`/api/chats/${id}`);
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setMessages(data.map((m: any) => ({
+          id: m.id.toString(),
+          role: m.role,
+          content: m.content
+        })));
+      }
+    } catch (err) {
+      console.error("Load chat error:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDeleteChat = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    if (!confirm("Bạn có chắc muốn xóa cuộc trò chuyện này?")) return;
+    try {
+      await fetch(`/api/chats/${id}`, { method: 'DELETE' });
+      setChats(prev => prev.filter(c => c.id.toString() !== id));
+      if (currentChatId === id) handleNewChat();
+    } catch (err) {
+      console.error("Delete chat error:", err);
+    }
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -67,6 +118,7 @@ export default function ChatPage() {
     setMessages([]);
     setSelectedFile(null);
     setInput('');
+    setCurrentChatId(null);
   };
 
   const handleSend = async () => {
@@ -107,9 +159,17 @@ export default function ChatPage() {
           model: selectedModel === 'Gemini AI' ? 'gemini-3.1-flash-lite-preview' : 'gemini-pro-latest',
           fileData,
           fileName: currentFile?.name,
-          mimeType: currentFile?.type
+          mimeType: currentFile?.type,
+          chatId: currentChatId,
+          userId: userId
         })
       });
+
+      const serverChatId = response.headers.get("x-chat-id");
+      if (serverChatId && !currentChatId) {
+        setCurrentChatId(serverChatId);
+        fetchChats(); // Refresh sidebar
+      }
 
       if (!response.body) return;
 
@@ -183,9 +243,18 @@ export default function ChatPage() {
               <div className="pt-4">
                 <h3 className="text-[11px] font-bold text-gray-600 uppercase tracking-[0.2em] px-3 mb-4">Lịch sử</h3>
                 <div className="space-y-1">
-                  <HistoryItem title="Cân bằng phương trình" />
-                  <HistoryItem title="Độ tan của muối" />
-                  <HistoryItem title="Thuyết nguyên tử" />
+                  {chats.map((chat) => (
+                    <HistoryItem 
+                      key={chat.id} 
+                      title={chat.title} 
+                      active={currentChatId === chat.id.toString()}
+                      onClick={() => loadChat(chat.id.toString())}
+                      onDelete={(e) => handleDeleteChat(e, chat.id.toString())}
+                    />
+                  ))}
+                  {chats.length === 0 && (
+                    <p className="text-[10px] text-gray-600 px-4">Chưa có lịch sử</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -398,15 +467,25 @@ export default function ChatPage() {
   );
 }
 
-function HistoryItem({ title }: { title: string }) {
+function HistoryItem({ title, active, onClick, onDelete }: { title: string, active?: boolean, onClick: () => void, onDelete: (e: React.MouseEvent) => void }) {
   return (
-    <div className="flex items-center justify-between group p-3 px-4 rounded-xl hover:bg-white/5 cursor-pointer transition-all border border-transparent hover:border-white/5">
+    <div 
+      onClick={onClick}
+      className={`flex items-center justify-between group p-3 px-4 rounded-xl cursor-pointer transition-all border ${
+        active 
+        ? 'bg-primary/10 border-primary/20 text-white' 
+        : 'hover:bg-white/5 border-transparent text-gray-400 hover:text-gray-200'
+      }`}
+    >
       <div className="flex items-center gap-3 overflow-hidden">
-        <MessageSquare className="w-4 h-4 text-gray-600 shrink-0 group-hover:text-primary transition-colors" />
-        <span className="text-sm text-gray-400 truncate group-hover:text-gray-200 transition-colors">{title}</span>
+        <MessageSquare className={`w-4 h-4 shrink-0 ${active ? 'text-primary' : 'text-gray-600 group-hover:text-primary'}`} />
+        <span className="text-sm truncate">{title}</span>
       </div>
       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button className="p-1.5 hover:bg-white/10 rounded-lg text-gray-600 hover:text-red-400">
+        <button 
+          onClick={onDelete}
+          className="p-1.5 hover:bg-white/10 rounded-lg text-gray-600 hover:text-red-400"
+        >
           <Trash2 className="w-3.5 h-3.5" />
         </button>
       </div>

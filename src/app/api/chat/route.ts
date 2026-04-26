@@ -8,7 +8,7 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     console.log("Chat API: Body parsed", { model: body.model, hasFile: !!body.fileData });
-    
+
     const { message, history, model: modelName, fileData, fileName, mimeType } = body;
 
     if (!process.env.GEMINI_API_KEY) {
@@ -18,7 +18,7 @@ export async function POST(req: Request) {
 
     console.log("Chat API: Initializing model...");
     const model = getModel(modelName || "gemini-3.1-flash-lite-preview");
-    
+
     let promptParts: any[] = [{ text: message || "Hãy phân tích tệp này." }];
 
     if (fileData) {
@@ -81,9 +81,9 @@ export async function POST(req: Request) {
     });
   } catch (error) {
     console.error("Chat API Fatal Error:", error);
-    return NextResponse.json({ 
-      error: "Failed to generate response", 
-      details: error instanceof Error ? error.message : String(error) 
+    return NextResponse.json({
+      error: "Failed to generate response",
+      details: error instanceof Error ? error.message : String(error)
     }, { status: 500 });
   }
 }

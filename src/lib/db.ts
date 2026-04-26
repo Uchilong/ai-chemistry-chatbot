@@ -12,6 +12,21 @@ export interface User {
   created_at: string;
 }
 
+export interface Chat {
+  id: number;
+  user_id: number;
+  title: string;
+  created_at: string;
+}
+
+export interface MessageRecord {
+  id: number;
+  chat_id: number;
+  role: 'user' | 'assistant';
+  content: string;
+  created_at: string;
+}
+
 export async function createUser(name: string, email: string, password: string): Promise<User> {
   const hashedPassword = bcrypt.hashSync(password, 12);
   const result = await sql`
@@ -40,6 +55,44 @@ export function verifyPassword(plainPassword: string, hashedPassword: string): b
   return bcrypt.compareSync(plainPassword, hashedPassword);
 }
 
+// Chat functions
+export async function createChat(userId: number, title: string): Promise<Chat> {
+  const result = await sql`
+    INSERT INTO chats (user_id, title)
+    VALUES (${userId}, ${title})
+    RETURNING id, user_id, title, created_at
+  `;
+  return result[0] as Chat;
+}
+
+export async function addMessage(chatId: number, role: 'user' | 'assistant', content: string): Promise<MessageRecord> {
+  const result = await sql`
+    INSERT INTO messages (chat_id, role, content)
+    VALUES (${chatId}, ${role}, ${content})
+    RETURNING id, chat_id, role, content, created_at
+  `;
+  return result[0] as MessageRecord;
+}
+
+export async function getChatsByUserId(userId: number): Promise<Chat[]> {
+  const result = await sql`
+    SELECT * FROM chats WHERE user_id = ${userId} ORDER BY created_at DESC
+  `;
+  return result as Chat[];
+}
+
+export async function getMessagesByChatId(chatId: number): Promise<MessageRecord[]> {
+  const result = await sql`
+    SELECT * FROM messages WHERE chat_id = ${chatId} ORDER BY created_at ASC
+  `;
+  return result as MessageRecord[];
+}
+
+export async function deleteChat(chatId: number, userId: number) {
+  await sql`DELETE FROM messages WHERE chat_id = ${chatId}`;
+  await sql`DELETE FROM chats WHERE id = ${chatId} AND user_id = ${userId}`;
+}
+
 // Initial table creation (should be done via a migration ideally, but for now we check/create)
 export async function initDb() {
   await sql`
@@ -48,6 +101,23 @@ export async function initDb() {
       name TEXT NOT NULL,
       email TEXT UNIQUE NOT NULL,
       password TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS chats (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id),
+      title TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS messages (
+      id SERIAL PRIMARY KEY,
+      chat_id INTEGER REFERENCES chats(id),
+      role TEXT NOT NULL,
+      content TEXT NOT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `;
