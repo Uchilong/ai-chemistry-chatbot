@@ -386,6 +386,24 @@ export default function ChatPage() {
               </motion.div>
             ))
           )}
+          
+          {isLoading && (
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex gap-4 md:gap-6"
+            >
+              <div className="w-10 h-10 rounded-2xl bg-primary/20 text-primary border border-primary/20 flex items-center justify-center shrink-0 shadow-lg">
+                <Beaker className="w-5 h-5 animate-pulse" />
+              </div>
+              <div className="bg-white/5 border border-white/10 px-6 py-4 rounded-[2rem] rounded-tl-none backdrop-blur-sm flex items-center gap-2">
+                <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]" />
+                <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]" />
+                <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" />
+                <span className="ml-2 text-xs font-medium text-gray-500 uppercase tracking-widest">Đang suy nghĩ...</span>
+              </div>
+            </motion.div>
+          )}
           <div ref={messagesEndRef} />
         </div>
 
