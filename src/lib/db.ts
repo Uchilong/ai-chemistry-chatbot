@@ -109,8 +109,9 @@ export async function deleteChat(chatId: number, userId: number) {
   await sql`DELETE FROM chats WHERE id = ${chatId} AND user_id = ${userId}`;
 }
 
-// Initial table creation (should be done via a migration ideally, but for now we check/create)
+// Initial table creation and migrations
 export async function initDb() {
+  // 1. Create basic tables
   await sql`
     CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY,
@@ -125,19 +126,26 @@ export async function initDb() {
       id SERIAL PRIMARY KEY,
       user_id INTEGER REFERENCES users(id),
       title TEXT NOT NULL,
-      file_data TEXT,
-      file_name TEXT,
-      mime_type TEXT,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `;
   await sql`
     CREATE TABLE IF NOT EXISTS messages (
       id SERIAL PRIMARY KEY,
-      chat_id INTEGER REFERENCES chats(id),
+      chat_id INTEGER REFERENCES chats(id) ON DELETE CASCADE,
       role TEXT NOT NULL,
       content TEXT NOT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `;
+
+  // 2. Migrations: Add file columns to chats if they don't exist
+  try {
+    await sql`ALTER TABLE chats ADD COLUMN IF NOT EXISTS file_data TEXT`;
+    await sql`ALTER TABLE chats ADD COLUMN IF NOT EXISTS file_name TEXT`;
+    await sql`ALTER TABLE chats ADD COLUMN IF NOT EXISTS mime_type TEXT`;
+    console.log("Database migrations completed successfully.");
+  } catch (e) {
+    console.error("Migration error:", e);
+  }
 }
