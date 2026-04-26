@@ -6,12 +6,42 @@ from PIL import Image
 from chemistry_tools import build_solver_hints
 from chemistry_kb import retrieve_snippets
 
+# Office file support
+try:
+    from docx import Document
+    DOCX_AVAILABLE = True
+except ImportError:
+    DOCX_AVAILABLE = False
+    print("Warning: python-docx not available. Word document processing disabled.")
+
+try:
+    from openpyxl import load_workbook
+    XLSX_AVAILABLE = True
+except ImportError:
+    XLSX_AVAILABLE = False
+    print("Warning: openpyxl not available. Excel file processing disabled.")
+
+try:
+    from pptx import Presentation
+    PPTX_AVAILABLE = True
+except ImportError:
+    PPTX_AVAILABLE = False
+    print("Warning: python-pptx not available. PowerPoint file processing disabled.")
+
+# PDF support
+try:
+    import PyPDF2
+    PDF_AVAILABLE = True
+except ImportError:
+    PDF_AVAILABLE = False
+    print("Warning: PyPDF2 not available. PDF processing disabled.")
+
 # Import config for API key and settings
 try:
     from config import GEMINI_API_KEY, MODEL_NAME
 except ImportError:
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-    MODEL_NAME = "gemini-2.0-flash"
+    MODEL_NAME = "gemini-3.1-flash-lite-preview"
 
 # Try to import vision tool for pix2text OCR
 try:
@@ -275,29 +305,29 @@ If tools fail, provide conceptual explanations and suggest alternative approache
         self,
         user_message: str,
         chat_history: Optional[list] = None,
-        chemistry_context: Optional[Dict[str, str]] = None
-    ) -> str:
+        chemistry_context: Optional[Dict[str, str]] = None,
+        stream: bool = False
+    ) -> Union[str, Iterator]:
         """
-        Send a text message and get AI response.
+        Send a text message and get AI response (optionally streaming).
         
         Args:
             user_message: The user's chemistry question or message
-            chat_history: Previous messages for context (list of dicts with 'role' and 'content')
+            chat_history: Previous messages for context
+            chemistry_context: Context for the model
+            stream: Whether to stream the response
         
         Returns:
-            AI's response text
+            AI's response text or a generator of response chunks
         """
         try:
             # Start a new chat session and build history
             chat_session = self.model.start_chat(history=[])
             
             if chat_history:
-                # The genai library expects a flat list of contents, not role-based dicts
-                # We need to adapt our history format.
                 history_for_api = []
                 for msg in chat_history:
                     role = msg.get("role", "user")
-                    # Gemini chat history expects `user` and `model` roles.
                     if role == "assistant":
                         role = "model"
                     elif role not in {"user", "model"}:
@@ -309,9 +339,16 @@ If tools fail, provide conceptual explanations and suggest alternative approache
             enhanced_message = f"{context_instruction}\n\nUser question:\n{user_message}"
 
             # Get response from Gemini
-            response = chat_session.send_message(enhanced_message)
-            
-            return response.text
+            if stream:
+                def response_generator():
+                    response = chat_session.send_message(enhanced_message, stream=True)
+                    for chunk in response:
+                        if chunk.text:
+                            yield chunk.text
+                return response_generator()
+            else:
+                response = chat_session.send_message(enhanced_message)
+                return response.text
         
         except Exception as e:
             return self._format_error("Error processing your question", e)
@@ -321,44 +358,22 @@ If tools fail, provide conceptual explanations and suggest alternative approache
         user_message: str, 
         image_path: str, 
         chat_history: Optional[list] = None,
-        chemistry_context: Optional[Dict[str, str]] = None
-    ) -> str:
+        chemistry_context: Optional[Dict[str, str]] = None,
+        stream: bool = False
+    ) -> Union[str, Iterator]:
         """
-        Send a message with an image and get AI response.
-        First tries pix2text (SimplePix2Text) to extract text/equations from the image,
-        then analyzes with Gemini. Gracefully handles extraction timeouts.
-        
-        Args:
-            user_message: The user's question about the image
-            image_path: Path to the image file
-            chat_history: Previous messages for context
-        
-        Returns:
-            AI's response text
+        Send a message with an image and get AI response (optionally streaming).
         """
         try:
             if not Path(image_path).exists():
                 return f"Error: Image file not found at {image_path}"
             
             # Extract text from image using pix2text (SimplePix2Text)
-            # with fallback if extraction takes too long or fails
             extracted_content = ""
             vision_tool = self.vision_tool
             if vision_tool:
                 try:
-                    # Set a reasonable timeout for extraction
-                    import signal
-                    
-                    def extraction_timeout_handler(signum, frame):
-                        raise TimeoutError("Image extraction took too long")
-                    
-                    # Try extraction with timeout (skip on Windows where signal doesn't work for non-main thread)
-                    try:
-                        ocr_result = vision_tool.extract_from_image(image_path)
-                    except TimeoutError:
-                        print("⚠️  pix2text extraction timeout - using Gemini analysis only")
-                        ocr_result = None
-                    
+                    ocr_result = vision_tool.extract_from_image(image_path)
                     if ocr_result and ocr_result.success:
                         extracted_content = f"""📋 **Text/Equations Extracted from Image:**
 - Extracted Text: {ocr_result.extracted_text}
@@ -367,11 +382,8 @@ If tools fail, provide conceptual explanations and suggest alternative approache
 - Confidence: {ocr_result.confidence:.1%}
 
 """
-                    elif ocr_result and not ocr_result.success:
-                        print(f"⚠️  pix2text extraction note: {ocr_result.error_message}")
                 except Exception as e:
-                    # Fail gracefully - just proceed with Gemini analysis
-                    print(f"⚠️  pix2text extraction error (using Gemini only): {str(e)}")
+                    print(f"⚠️  pix2text extraction error: {str(e)}")
             
             # Load the image for Gemini analysis
             img = Image.open(image_path)
@@ -382,14 +394,23 @@ If tools fail, provide conceptual explanations and suggest alternative approache
                 chemistry_context
             )
             
-            # Send to Gemini with extracted content and image
-            response = self.model.generate_content([
+            # Send to Gemini
+            prompt = [
                 context_instruction, 
                 f"{extracted_content}\n{user_message}" if extracted_content else user_message, 
                 img
-            ])
+            ]
             
-            return response.text
+            if stream:
+                def response_generator():
+                    response = self.model.generate_content(prompt, stream=True)
+                    for chunk in response:
+                        if chunk.text:
+                            yield chunk.text
+                return response_generator()
+            else:
+                response = self.model.generate_content(prompt)
+                return response.text
         
         except Exception as e:
             return self._format_error("Error processing image", e)
@@ -466,18 +487,12 @@ Format your answer with:
         user_message: str,
         file_path: str,
         chat_history: Optional[list] = None,
-        chemistry_context: Optional[Dict[str, str]] = None
-    ) -> str:
+        chemistry_context: Optional[Dict[str, str]] = None,
+        stream: bool = False
+    ) -> Union[str, Iterator]:
         """
-        Send a message with a file (image, PDF, or text) and get AI response.
-        
-        Args:
-            user_message: The user's question about the file
-            file_path: Path to the file (image or text)
-            chat_history: Previous messages for context
-        
-        Returns:
-            AI's response text
+        Send a message with a file and get AI response (optionally streaming).
+        Uses a combination of native File API and manual extraction for best results.
         """
         try:
             if not Path(file_path).exists():
@@ -487,29 +502,179 @@ Format your answer with:
             
             # Handle images
             if file_ext in [".jpg", ".jpeg", ".png", ".gif", ".webp"]:
-                return self.chat_with_image(user_message, file_path, chat_history, chemistry_context)
+                return self.chat_with_image(user_message, file_path, chat_history, chemistry_context, stream=stream)
             
             # Handle text files
             elif file_ext in [".txt"]:
-                return self._handle_text_file(user_message, file_path, chat_history, chemistry_context)
+                return self._handle_text_file(user_message, file_path, chat_history, chemistry_context, stream=stream)
             
-            # Handle PDF files
+            # Handle PDF (Gemini native support is strong for PDF)
             elif file_ext == ".pdf":
-                return self._handle_pdf_file(user_message, file_path, chat_history, chemistry_context)
+                return self._handle_genai_file(user_message, file_path, chat_history, chemistry_context, stream=stream)
+            
+            # Handle Word, Excel, PPT (Manual extraction to avoid Unsupported MIME Type error)
+            elif file_ext in [".doc", ".docx"]:
+                return self._handle_docx_file(user_message, file_path, chat_history, chemistry_context, stream=stream)
+            elif file_ext in [".xls", ".xlsx"]:
+                return self._handle_excel_file(user_message, file_path, chat_history, chemistry_context, stream=stream)
+            elif file_ext in [".ppt", ".pptx"]:
+                return self._handle_pptx_file(user_message, file_path, chat_history, chemistry_context, stream=stream)
             
             else:
-                return f"Error: Unsupported file type {file_ext}. Supported: jpg, png, gif, webp, txt, pdf"
+                return f"Error: Unsupported file type {file_ext}. Supported: jpg, png, gif, webp, txt, pdf, doc, docx, xls, xlsx, ppt, pptx"
         
         except Exception as e:
             return self._format_error("Error processing file", e)
+
+    def _handle_genai_file(
+        self,
+        user_message: str,
+        file_path: str,
+        chat_history: Optional[list] = None,
+        chemistry_context: Optional[Dict[str, str]] = None,
+        stream: bool = False
+    ) -> Union[str, Iterator]:
+        """Handle document analysis using Gemini's native File API (best for PDFs)."""
+        try:
+            # Upload the file to Gemini
+            genai_file = genai.upload_file(path=file_path, display_name=Path(file_path).name)
+            
+            context_instruction = self._build_context_instruction(user_message, chemistry_context)
+            prompt = [
+                context_instruction,
+                f"The user has uploaded the file '{genai_file.display_name}'. Please analyze it and answer the following question.",
+                genai_file,
+                user_message
+            ]
+
+            if stream:
+                def response_generator():
+                    response = self.model.generate_content(prompt, stream=True)
+                    for chunk in response:
+                        if chunk.text:
+                            yield chunk.text
+                return response_generator()
+            else:
+                response = self.model.generate_content(prompt)
+                return response.text
+        except Exception as e:
+            return self._format_error("Error processing file with Gemini API", e)
+
+    def _handle_docx_file(
+        self,
+        user_message: str,
+        file_path: str,
+        chat_history: Optional[list] = None,
+        chemistry_context: Optional[Dict[str, str]] = None,
+        stream: bool = False
+    ) -> Union[str, Iterator]:
+        """Exhaustive Word document analysis to ensure no content (like Question 1) is missed."""
+        try:
+            if not DOCX_AVAILABLE:
+                return "Error: python-docx is not installed."
+            
+            from docx import Document
+            doc = Document(file_path)
+            content_parts = []
+            
+            # 1. Check all document elements in order
+            for element in doc.element.body:
+                # Handle paragraphs
+                if element.tag.endswith('p'):
+                    from docx.text.paragraph import Paragraph
+                    para = Paragraph(element, doc)
+                    text = para.text.strip()
+                    if text:
+                        # Check style for header formatting
+                        style = para.style.name.lower()
+                        if "heading" in style:
+                            content_parts.append(f"### {text}")
+                        else:
+                            content_parts.append(text)
+                
+                # Handle tables
+                elif element.tag.endswith('tbl'):
+                    from docx.table import Table
+                    table = Table(element, doc)
+                    content_parts.append("\n| " + " | ".join(["---"] * len(table.columns)) + " |")
+                    for i, row in enumerate(table.rows):
+                        row_text = [cell.text.strip().replace("\n", " ") for cell in row.cells]
+                        content_parts.append("| " + " | ".join(row_text) + " |")
+                        if i == 0:
+                            content_parts.append("| " + " | ".join(["---"] * len(row_text)) + " |")
+            
+            content = "\n\n".join(content_parts)
+            if len(content) > 15000:
+                content = content[:15000] + "\n\n[Content truncated...]"
+                
+            enhanced_message = f"Document '{Path(file_path).name}' for analysis.\n\nContent:\n{content}\n\n{user_message}"
+            return self.chat(enhanced_message, chat_history, chemistry_context, stream=stream)
+        except Exception as e:
+            return self._format_error("Error processing Word document", e)
+
+    def _handle_excel_file(
+        self,
+        user_message: str,
+        file_path: str,
+        chat_history: Optional[list] = None,
+        chemistry_context: Optional[Dict[str, str]] = None,
+        stream: bool = False
+    ) -> Union[str, Iterator]:
+        """Excel analysis with Markdown formatting."""
+        try:
+            from openpyxl import load_workbook
+            wb = load_workbook(file_path, data_only=True)
+            content_parts = []
+            for sheet in wb.sheetnames:
+                ws = wb[sheet]
+                content_parts.append(f"## Sheet: {sheet}")
+                rows = list(ws.iter_rows(values_only=True))
+                for i, row in enumerate(rows):
+                    row_text = [str(cell).strip() if cell is not None else "" for cell in row]
+                    if any(row_text):
+                        content_parts.append("| " + " | ".join(row_text) + " |")
+                        if i == 0:
+                            content_parts.append("| " + " | ".join(["---"] * len(row_text)) + " |")
+            content = "\n\n".join(content_parts)
+            enhanced_message = f"Excel content:\n{content}\n\n{user_message}"
+            return self.chat(enhanced_message, chat_history, chemistry_context, stream=stream)
+        except Exception as e:
+            return self._format_error("Error processing Excel", e)
+
+    def _handle_pptx_file(
+        self,
+        user_message: str,
+        file_path: str,
+        chat_history: Optional[list] = None,
+        chemistry_context: Optional[Dict[str, str]] = None,
+        stream: bool = False
+    ) -> Union[str, Iterator]:
+        """PowerPoint analysis with slide context."""
+        try:
+            from pptx import Presentation
+            prs = Presentation(file_path)
+            content_parts = []
+            for slide_idx, slide in enumerate(prs.slides, 1):
+                content_parts.append(f"## Slide {slide_idx}")
+                for shape in slide.shapes:
+                    if hasattr(shape, "text") and shape.text.strip():
+                        content_parts.append(shape.text.strip())
+            content = "\n\n".join(content_parts)
+            enhanced_message = f"PPT content:\n{content}\n\n{user_message}"
+            return self.chat(enhanced_message, chat_history, chemistry_context, stream=stream)
+        except Exception as e:
+            return self._format_error("Error processing PowerPoint", e)
+
+
 
     def _handle_text_file(
         self,
         user_message: str,
         file_path: str,
         chat_history: Optional[list] = None,
-        chemistry_context: Optional[Dict[str, str]] = None
-    ) -> str:
+        chemistry_context: Optional[Dict[str, str]] = None,
+        stream: bool = False
+    ) -> Union[str, Iterator]:
         """Handle text file analysis."""
         try:
             with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
@@ -521,39 +686,12 @@ Format your answer with:
             
             enhanced_message = f"I'm sharing a text file '{Path(file_path).name}' for analysis.\n\nFile content:\n---\n{content}\n---\n\n{user_message}"
             
-            return self.chat(enhanced_message, chat_history, chemistry_context)
+            return self.chat(enhanced_message, chat_history, chemistry_context, stream=stream)
         
         except Exception as e:
             return self._format_error("Error reading text file", e)
 
-    def _handle_pdf_file(
-        self,
-        user_message: str,
-        file_path: str,
-        chat_history: Optional[list] = None,
-        chemistry_context: Optional[Dict[str, str]] = None
-    ) -> str:
-        """Handle PDF file analysis."""
-        # Use Gemini's native file processing API for better results
-        try:
-            print(f"Uploading file to Gemini: {file_path}")
-            # Upload the file and get a file handle
-            pdf_file = genai.upload_file(path=file_path, display_name=Path(file_path).name)
-            print(f"File uploaded successfully: {pdf_file.name}")
 
-            # Create a prompt that includes the file
-            context_instruction = self._build_context_instruction(user_message, chemistry_context)
-            prompt = [
-                context_instruction,
-                f"The user has uploaded the file '{pdf_file.display_name}'. Please analyze it and answer the following question.",
-                pdf_file,
-                user_message
-            ]
-
-            response = self.model.generate_content(prompt)
-            return response.text
-        except Exception as e:
-            return self._format_error("Error processing PDF file with Gemini API", e)
 
 
 # Initialize and cache the brain instance

@@ -17,7 +17,7 @@ from backend.tools.media_tool import media_tool
 class LLMRouter:
     """Intelligent router that orchestrates chemistry tools using AI."""
     
-    def __init__(self, api_key: Optional[str] = None, model_name: str = "gemini-2.0-flash"):
+    def __init__(self, api_key: Optional[str] = None, model_name: str = "gemini-3.1-flash-lite-preview"):
         """
         Initialize LLM Router.
         
@@ -181,7 +181,7 @@ Be educational, clear, and scaffold learning for high school students."""
     
     def _parse_parameters(self, params_str: str) -> Dict[str, str]:
         """Parse parameter string into dictionary."""
-        params = {}
+        params: Dict[str, str] = {}
         
         if not params_str:
             return params
@@ -200,13 +200,13 @@ Be educational, clear, and scaffold learning for high school students."""
         try:
             if tool_name == "pubchem_tool.get_chemical_info":
                 identifier = params.get('identifier', '')
-                result = pubchem_tool.get_chemical_info(identifier)
-                if result:
+                info_result = pubchem_tool.get_chemical_info(identifier)
+                if info_result:
                     return {
-                        'name': result.name,
-                        'formula': result.formula,
-                        'molar_mass': result.molar_mass,
-                        'description': result.description
+                        'name': info_result.name,
+                        'formula': info_result.formula,
+                        'molar_mass': info_result.molar_mass,
+                        'description': info_result.description
                     }
                 else:
                     return f"Chemical '{identifier}' not found"
@@ -221,14 +221,14 @@ Be educational, clear, and scaffold learning for high school students."""
             
             elif tool_name == "wolfram_tool.balance_equation":
                 equation = params.get('equation', '')
-                result = wolfram_tool.balance_equation(equation)
-                if result.success:
+                bal_result = wolfram_tool.balance_equation(equation)
+                if bal_result.success:
                     return {
-                        'balanced_equation': result.result,
-                        'steps': result.steps
+                        'balanced_equation': bal_result.result,
+                        'steps': bal_result.steps
                     }
                 else:
-                    return f"Could not balance equation: {result.error_message}"
+                    return f"Could not balance equation: {bal_result.error_message}"
             
             elif tool_name == "wolfram_tool.stoichiometry_calculation":
                 equation = params.get('equation', '')
@@ -236,45 +236,45 @@ Be educational, clear, and scaffold learning for high school students."""
                 given_unit = params.get('given_unit', '')
                 find_substance = params.get('find_substance', '')
                 
-                result = wolfram_tool.stoichiometry_calculation(
+                stoich_result = wolfram_tool.stoichiometry_calculation(
                     equation, given_amount, given_unit, find_substance
                 )
-                if result.success:
+                if stoich_result.success:
                     return {
-                        'result': result.result,
-                        'steps': result.steps
+                        'result': stoich_result.result,
+                        'steps': stoich_result.steps
                     }
                 else:
-                    return f"Stoichiometry calculation failed: {result.error_message}"
+                    return f"Stoichiometry calculation failed: {stoich_result.error_message}"
             
             elif tool_name == "vision_tool.extract_from_image":
                 image_path = params.get('image_path', '')
-                result = vision_tool.extract_from_image(image_path)
-                if result.success:
+                vis_result = vision_tool.extract_from_image(image_path)
+                if vis_result.success:
                     return {
-                        'extracted_text': result.extracted_text,
-                        'equations': result.equations,
-                        'chemical_formulas': result.chemical_formulas
+                        'extracted_text': vis_result.extracted_text,
+                        'equations': vis_result.equations,
+                        'chemical_formulas': vis_result.chemical_formulas
                     }
                 else:
-                    return f"Image analysis failed: {result.error_message}"
+                    return f"Image analysis failed: {vis_result.error_message}"
             
             elif tool_name == "media_tool.generate_chemistry_image":
                 concept = params.get('concept', '')
                 style = params.get('style', 'educational')
-                result = media_tool.generate_chemistry_image(concept, style)
-                if result.success:
-                    return f"Generated image: {result.content_url}"
+                img_result = media_tool.generate_chemistry_image(concept, style)
+                if img_result.success:
+                    return f"Generated image: {img_result.content_url}"
                 else:
-                    return f"Image generation failed: {result.error_message}"
+                    return f"Image generation failed: {img_result.error_message}"
             
             elif tool_name == "media_tool.generate_molecular_structure":
                 formula = params.get('formula', '')
-                result = media_tool.generate_molecular_structure(formula)
-                if result.success:
-                    return f"Generated molecular structure: {result.content_url}"
+                struct_result = media_tool.generate_molecular_structure(formula)
+                if struct_result.success:
+                    return f"Generated molecular structure: {struct_result.content_url}"
                 else:
-                    return f"Molecular structure generation failed: {result.error_message}"
+                    return f"Molecular structure generation failed: {struct_result.error_message}"
             
             else:
                 return f"Unknown tool: {tool_name}"

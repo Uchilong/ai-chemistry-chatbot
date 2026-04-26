@@ -23,7 +23,8 @@ def init_user_store() -> None:
             """
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                email TEXT NOT NULL UNIQUE
+                email TEXT NOT NULL UNIQUE,
+                password TEXT
             )
             """
         )
@@ -66,13 +67,18 @@ def init_user_store() -> None:
         )
 
 
-def get_or_create_user(email: str) -> int:
+def get_or_create_user(email: str, password: str) -> Optional[int]:
     normalized = email.strip().lower()
     with _conn() as con:
-        row = con.execute("SELECT id FROM users WHERE email = ?", (normalized,)).fetchone()
+        row = con.execute("SELECT id, password FROM users WHERE email = ?", (normalized,)).fetchone()
         if row:
-            return int(row["id"])
-        cur = con.execute("INSERT INTO users(email) VALUES (?)", (normalized,))
+            if row["password"] == password:
+                return int(row["id"])
+            else:
+                return None  # Incorrect password
+        
+        # Create new user if not exists
+        cur = con.execute("INSERT INTO users(email, password) VALUES (?, ?)", (normalized, password))
         return int(cur.lastrowid)
 
 
