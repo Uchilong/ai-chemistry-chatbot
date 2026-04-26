@@ -1,4 +1,8 @@
 # Environment variables and secrets
+/node_modules
+/.next/
+/.pnp
+.pnp.*
 .env
 .env.local
 .env.*.local
