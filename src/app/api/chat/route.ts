@@ -1,6 +1,7 @@
 import { getModel } from "@/lib/gemini";
 import { NextResponse } from "next/server";
 import { Buffer } from "node:buffer";
+import { parseFile } from "@/lib/file_parser";
 
 export async function POST(req: Request) {
   try {
@@ -25,7 +26,6 @@ export async function POST(req: Request) {
       } else {
         // Documents: try server-side parsing, fall back gracefully
         try {
-          const { parseFile } = await import("@/lib/file_parser");
           const extractedText = await parseFile(buffer, mimeType);
           if (extractedText) {
             promptParts[0].text = `Nội dung từ tệp "${fileName}":\n\n${extractedText}\n\n---\n\nCâu hỏi: ${message}`;
