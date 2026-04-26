@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Mail, Lock, ArrowRight, Loader2, AlertCircle } from 'lucide-react';
@@ -7,7 +8,7 @@ import { signIn } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
-export default function LoginPage() {
+function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -120,5 +121,17 @@ export default function LoginPage() {
         </div>
       </motion.div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="auth-container">
+        <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   );
 }
