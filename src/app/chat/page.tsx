@@ -235,8 +235,20 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="flex h-screen bg-[#050505] text-[#e5e5e5] font-sans selection:bg-primary/30">
-      {/* ... rest of the component ... */}
+    <div className="flex h-screen bg-[#050505] text-[#e5e5e5] font-sans selection:bg-primary/30 relative overflow-hidden">
+      {/* Mobile Backdrop */}
+      <AnimatePresence>
+        {isSidebarOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsSidebarOpen(false)}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 lg:hidden"
+          />
+        )}
+      </AnimatePresence>
+
       {/* Sidebar */}
       <AnimatePresence mode="wait">
         {isSidebarOpen && (
@@ -244,7 +256,8 @@ export default function ChatPage() {
             initial={{ x: -300 }}
             animate={{ x: 0 }}
             exit={{ x: -300 }}
-            className="w-72 border-r border-white/5 bg-[#0a0a0a] flex flex-col z-20 shadow-2xl"
+            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            className="fixed lg:relative w-72 h-full border-r border-white/5 bg-[#0a0a0a] flex flex-col z-40 shadow-2xl"
           >
             <div className="p-5 border-b border-white/5 flex items-center justify-between">
               <Link href="/" className="flex items-center gap-3 group">
@@ -253,7 +266,7 @@ export default function ChatPage() {
                 </div>
                 <span className="font-bold text-lg tracking-tight text-white">Hóa Học AI</span>
               </Link>
-              <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden p-2 hover:bg-white/5 rounded-lg">
+              <button onClick={() => setIsSidebarOpen(false)} className="p-2 hover:bg-white/5 rounded-lg">
                 <X className="w-5 h-5 text-gray-500" />
               </button>
             </div>
