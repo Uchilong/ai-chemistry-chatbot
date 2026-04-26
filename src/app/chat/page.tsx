@@ -50,18 +50,22 @@ export default function ChatPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [chats, setChats] = useState<any[]>([]);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Fetch chat history
   const fetchChats = async () => {
     if (!userId) return;
+    setIsHistoryLoading(true);
     try {
       const res = await fetch('/api/chats');
       const data = await res.json();
       if (Array.isArray(data)) setChats(data);
     } catch (err) {
       console.error("Fetch chats error:", err);
+    } finally {
+      setIsHistoryLoading(false);
     }
   };
 
@@ -266,16 +270,26 @@ export default function ChatPage() {
               <div className="pt-4">
                 <h3 className="text-[11px] font-bold text-gray-600 uppercase tracking-[0.2em] px-3 mb-4">Lịch sử</h3>
                 <div className="space-y-1">
-                  {chats.map((chat) => (
-                    <HistoryItem 
-                      key={chat.id} 
-                      title={chat.title} 
-                      active={currentChatId === chat.id.toString()}
-                      onClick={() => loadChat(chat.id.toString())}
-                      onDelete={(e) => handleDeleteChat(e, chat.id.toString())}
-                    />
-                  ))}
-                  {chats.length === 0 && (
+                  {isHistoryLoading ? (
+                    // Skeleton Loaders
+                    [1, 2, 3, 4, 5].map((i) => (
+                      <div key={i} className="flex items-center gap-3 p-3 px-4 animate-pulse">
+                        <div className="w-4 h-4 bg-white/5 rounded" />
+                        <div className="h-3 bg-white/5 rounded w-3/4" />
+                      </div>
+                    ))
+                  ) : (
+                    chats.map((chat) => (
+                      <HistoryItem 
+                        key={chat.id} 
+                        title={chat.title} 
+                        active={currentChatId === chat.id.toString()}
+                        onClick={() => loadChat(chat.id.toString())}
+                        onDelete={(e) => handleDeleteChat(e, chat.id.toString())}
+                      />
+                    ))
+                  )}
+                  {!isHistoryLoading && chats.length === 0 && (
                     <p className="text-[10px] text-gray-600 px-4">Chưa có lịch sử</p>
                   )}
                 </div>
