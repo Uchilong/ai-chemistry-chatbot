@@ -13,13 +13,25 @@ const handler = NextAuth({
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
 
-        const user = await getUserByEmail(credentials.email);
-        if (!user) return null;
+        try {
+          const user = await getUserByEmail(credentials.email);
+          if (!user) {
+            console.log("NextAuth: User not found for email:", credentials.email);
+            return null;
+          }
 
-        const valid = verifyPassword(credentials.password, user.password);
-        if (!valid) return null;
+          const valid = verifyPassword(credentials.password, user.password);
+          if (!valid) {
+            console.log("NextAuth: Invalid password for email:", credentials.email);
+            return null;
+          }
 
-        return { id: String(user.id), name: user.name, email: user.email };
+          console.log("NextAuth: Login successful for:", credentials.email);
+          return { id: String(user.id), name: user.name, email: user.email };
+        } catch (error) {
+          console.error("NextAuth authorize error:", error);
+          return null;
+        }
       }
     })
   ],
