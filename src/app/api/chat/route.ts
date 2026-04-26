@@ -2,7 +2,7 @@ import { getModel } from "@/lib/gemini";
 import { NextResponse } from "next/server";
 import { Buffer } from "node:buffer";
 import { parseFile } from "@/lib/file_parser";
-import { addMessage, createChat } from "@/lib/db";
+import { addMessage, createChat, getChatById, updateChatFile } from "@/lib/db";
 
 export async function POST(req: Request) {
   console.log("Chat API: Request received");
@@ -13,17 +13,41 @@ export async function POST(req: Request) {
     const { message, history, model: modelName, fileData, fileName, mimeType, chatId, userId } = body;
 
     let activeChatId = chatId;
+    let effectiveFileData = fileData;
+    let effectiveFileName = fileName;
+    let effectiveMimeType = mimeType;
 
-    // Đảm bảo userId là kiểu số (NextAuth có thể trả về chuỗi)
+    // Đảm bảo userId là kiểu số
     const numericUserId = userId ? Number(userId) : null;
 
-    // If logged in and starting a new chat, create it
+    // Nếu có file mới, xử lý thông tin file
+    const newFileInfo = fileData ? {
+      data: fileData.split(',')[1],
+      name: fileName,
+      type: mimeType
+    } : null;
+
+    // 1. Nếu là chat mới và có file -> Tạo chat và lưu file
     if (numericUserId && !activeChatId && message) {
-      const newChat = await createChat(numericUserId, message.substring(0, 50) || "Cuộc trò chuyện mới");
+      const newChat = await createChat(numericUserId, message.substring(0, 50) || "Cuộc trò chuyện mới", newFileInfo || undefined);
       activeChatId = newChat.id;
+    } 
+    // 2. Nếu là chat cũ và có file mới -> Cập nhật file cho chat đó
+    else if (activeChatId && newFileInfo) {
+      await updateChatFile(Number(activeChatId), newFileInfo);
+    }
+    // 3. Nếu là chat cũ và KHÔNG gửi kèm file -> Lấy file cũ từ DB để làm ngữ cảnh
+    else if (activeChatId && !fileData) {
+      const chat = await getChatById(Number(activeChatId));
+      if (chat?.file_data) {
+        effectiveFileData = `data:${chat.mime_type};base64,${chat.file_data}`;
+        effectiveFileName = chat.file_name;
+        effectiveMimeType = chat.mime_type;
+        console.log("Chat API: Using persisted file context from DB", { fileName: effectiveFileName });
+      }
     }
 
-    // Save user message if chatId is available
+    // Save user message
     if (activeChatId) {
       await addMessage(Number(activeChatId), 'user', message || "[Tệp tin]");
     }
@@ -33,38 +57,22 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "API Key is not configured on server" }, { status: 500 });
     }
 
-    console.log("Chat API: Initializing model...");
     const model = getModel(modelName || "gemini-3.1-flash-lite-preview");
-
     let promptParts: any[] = [{ text: message || "Hãy phân tích tệp này." }];
 
-    if (fileData) {
-      console.log("Chat API: Processing file...", { fileName, mimeType });
-      const base64Data = fileData.split(',')[1];
+    if (effectiveFileData) {
+      const base64Data = effectiveFileData.split(',')[1];
       const buffer = Buffer.from(base64Data, 'base64');
 
-      if (mimeType?.startsWith('image/')) {
-        promptParts.push({
-          inlineData: {
-            data: base64Data,
-            mimeType: mimeType
-          }
-        });
-      } else if (mimeType === 'application/pdf') {
-        // Native PDF support: Gemini will see text AND images
-        console.log("Chat API: Sending PDF directly to Gemini (Native Support)");
-        promptParts.push({
-          inlineData: {
-            data: base64Data,
-            mimeType: 'application/pdf'
-          }
-        });
+      if (effectiveMimeType?.startsWith('image/')) {
+        promptParts.push({ inlineData: { data: base64Data, mimeType: effectiveMimeType } });
+      } else if (effectiveMimeType === 'application/pdf') {
+        promptParts.push({ inlineData: { data: base64Data, mimeType: 'application/pdf' } });
       } else {
         try {
-          console.log("Chat API: Parsing document text...");
-          const extractedText = await parseFile(buffer, mimeType);
+          const extractedText = await parseFile(buffer, effectiveMimeType || "");
           if (extractedText) {
-            promptParts[0].text = `Nội dung từ tệp "${fileName}":\n\n${extractedText}\n\n---\n\nCâu hỏi: ${message}`;
+            promptParts[0].text = `Nội dung từ tệp "${effectiveFileName}":\n\n${extractedText}\n\n---\n\nCâu hỏi: ${message}`;
           }
         } catch (parseError) {
           console.warn("File parsing failed:", parseError);

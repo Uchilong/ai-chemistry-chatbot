@@ -16,6 +16,9 @@ export interface Chat {
   id: number;
   user_id: number;
   title: string;
+  file_data?: string;
+  file_name?: string;
+  mime_type?: string;
   created_at: string;
 }
 
@@ -56,13 +59,26 @@ export function verifyPassword(plainPassword: string, hashedPassword: string): b
 }
 
 // Chat functions
-export async function createChat(userId: number, title: string): Promise<Chat> {
+export async function createChat(userId: number, title: string, fileInfo?: { data: string, name: string, type: string }): Promise<Chat> {
   const result = await sql`
-    INSERT INTO chats (user_id, title)
-    VALUES (${userId}, ${title})
-    RETURNING id, user_id, title, created_at
+    INSERT INTO chats (user_id, title, file_data, file_name, mime_type)
+    VALUES (${userId}, ${title}, ${fileInfo?.data || null}, ${fileInfo?.name || null}, ${fileInfo?.type || null})
+    RETURNING id, user_id, title, file_data, file_name, mime_type, created_at
   `;
   return result[0] as Chat;
+}
+
+export async function getChatById(id: number): Promise<Chat | null> {
+  const result = await sql`SELECT * FROM chats WHERE id = ${id}`;
+  return (result[0] as Chat) || null;
+}
+
+export async function updateChatFile(id: number, fileInfo: { data: string, name: string, type: string }) {
+  await sql`
+    UPDATE chats 
+    SET file_data = ${fileInfo.data}, file_name = ${fileInfo.name}, mime_type = ${fileInfo.type}
+    WHERE id = ${id}
+  `;
 }
 
 export async function addMessage(chatId: number, role: 'user' | 'assistant', content: string): Promise<MessageRecord> {
@@ -109,6 +125,9 @@ export async function initDb() {
       id SERIAL PRIMARY KEY,
       user_id INTEGER REFERENCES users(id),
       title TEXT NOT NULL,
+      file_data TEXT,
+      file_name TEXT,
+      mime_type TEXT,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `;
