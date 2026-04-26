@@ -441,18 +441,26 @@ export default function ChatPage() {
                       </ReactMarkdown>
                     </div>
                     
-                    {/* Copy Button */}
-                    <button 
-                      onClick={() => copyToClipboard(m.content, m.id)}
-                      className={`absolute top-2 ${m.role === 'user' ? '-left-12' : '-right-12'} p-2 rounded-xl bg-white/5 border border-white/10 transition-all hover:bg-white/10 shadow-sm`}
-                      title="Sao chép tin nhắn"
-                    >
-                      {copiedId === m.id ? (
-                        <Check className="w-4 h-4 text-green-400" />
-                      ) : (
-                        <Copy className="w-4 h-4 text-gray-400" />
-                      )}
-                    </button>
+                    {/* Copy Button at Bottom */}
+                    <div className={`mt-2 flex ${m.role === 'user' ? 'justify-start' : 'justify-end'}`}>
+                      <button 
+                        onClick={() => copyToClipboard(m.content, m.id)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 transition-all hover:bg-white/10 hover:border-white/20"
+                        title="Sao chép tin nhắn"
+                      >
+                        {copiedId === m.id ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 text-green-400" />
+                            <span className="text-[10px] font-bold text-green-400 uppercase tracking-wider">Đã sao chép</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5 text-gray-500" />
+                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Sao chép</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </motion.div>

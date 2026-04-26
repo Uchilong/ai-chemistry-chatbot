@@ -69,9 +69,6 @@ export default function LandingPage() {
               Bắt đầu hành trình
               <ArrowRight className="group-hover:translate-x-1 transition-transform" />
             </Link>
-            <button className="w-full sm:w-auto px-8 py-4 bg-white/5 text-white border border-white/10 rounded-2xl font-bold text-lg hover:bg-white/10 transition-all">
-              Xem bản demo
-            </button>
           </motion.div>
         </div>
 
