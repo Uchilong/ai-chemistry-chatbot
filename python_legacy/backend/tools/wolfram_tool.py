@@ -91,9 +91,10 @@ class WolframTool:
                 result = self._query_wolfram(query)
                 if result.success:
                     return result
-            else:
-                # Fallback to simple balancing logic
-                return self._simple_balance(equation)
+                return result
+            
+            # Fallback to simple balancing logic
+            return self._simple_balance(equation)
                 
         except Exception as e:
             return CalculationResult(
@@ -360,7 +361,7 @@ class WolframTool:
             pattern = r'([A-Z][a-z]?)(\d*)'
             matches = re.findall(pattern, formula)
             
-            total_mass = 0
+            total_mass = 0.0
             steps = [f"Analyzing formula: {formula}"]
             
             for element, count_str in matches:

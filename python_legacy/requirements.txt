@@ -3,10 +3,12 @@ Pillow
 google-generativeai
 python-dotenv
 requests
-mistralai
-groq
 PyPDF2
 pydantic
+# Office file support
+python-docx
+openpyxl
+python-pptx
 # Backend dependencies
 fastapi
 uvicorn

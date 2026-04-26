@@ -8,16 +8,12 @@ load_dotenv()
 
 # API Keys
 GEMINI_API_KEY = ""
-MISTRAL_API_KEY = ""
-GROQ_API_KEY = ""
 WOLFRAM_APP_ID = ""
 POLLINATIONS_API_KEY = ""
 
 try:
     import streamlit as st
     GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY", "")
-    MISTRAL_API_KEY = st.secrets.get("MISTRAL_API_KEY", "")
-    GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "")
     WOLFRAM_APP_ID = st.secrets.get("WOLFRAM_APP_ID", "")
     POLLINATIONS_API_KEY = st.secrets.get("POLLINATIONS_API_KEY", "")
 except Exception:
@@ -25,10 +21,6 @@ except Exception:
 
 if not GEMINI_API_KEY:
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-if not MISTRAL_API_KEY:
-    MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY", "")
-if not GROQ_API_KEY:
-    GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 if not WOLFRAM_APP_ID:
     WOLFRAM_APP_ID = os.getenv("WOLFRAM_APP_ID", "")
 if not POLLINATIONS_API_KEY:
@@ -57,7 +49,7 @@ RATE_LIMIT_WINDOW = int(os.getenv("RATE_LIMIT_WINDOW", "3600"))  # 1 hour
 
 # File Upload Configuration
 MAX_FILE_SIZE = int(os.getenv("MAX_FILE_SIZE", "10485760"))  # 10MB
-ALLOWED_FILE_TYPES = os.getenv("ALLOWED_FILE_TYPES", "jpg,jpeg,png,gif,webp,pdf").split(",")
+ALLOWED_FILE_TYPES = os.getenv("ALLOWED_FILE_TYPES", "jpg,jpeg,png,gif,webp,pdf,txt,doc,docx,xls,xlsx,ppt,pptx").split(",")
 
 # Logging Configuration
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
@@ -65,24 +57,26 @@ LOG_FILE = os.getenv("LOG_FILE", "chemistry_chatbot.log")
 
 def validate_config():
     """Validate that required configuration is set."""
-    missing_keys = []
-    
-    # Check for at least one AI API key
-    if not GEMINI_API_KEY and not MISTRAL_API_KEY and not GROQ_API_KEY:
-        missing_keys.append("At least one of GEMINI_API_KEY, MISTRAL_API_KEY, or GROQ_API_KEY is required")
+    if not GEMINI_API_KEY:
+        raise ValueError(
+            "GEMINI_API_KEY is required for the backend. "
+            "Please set it in your environment or .env file.\n"
+            "Get your key at: https://aistudio.google.com/app/apikey"
+        )
     
     # Check optional but recommended keys
     if not WOLFRAM_APP_ID:
         print("Warning: WOLFRAM_APP_ID not set. Wolfram Alpha features will be limited.")
-    
-    if missing_keys:
-        raise ValueError("Missing required configuration:\n" + "\n".join(f"- {key}" for key in missing_keys))
     
     return True
 
 def get_tool_status():
     """Get status of all tools based on available API keys."""
     return {
+        "gemini": {
+            "enabled": GEMINI_API_KEY != "",
+            "status": "full" if GEMINI_API_KEY else "unavailable"
+        },
         "pubchem": {
             "enabled": ENABLE_PUBCHEM,
             "status": "available" if ENABLE_PUBCHEM else "disabled"
@@ -98,9 +92,5 @@ def get_tool_status():
         "media": {
             "enabled": ENABLE_MEDIA,
             "status": "available" if ENABLE_MEDIA else "disabled"
-        },
-        "groq": {
-            "enabled": True,
-            "status": "full" if GROQ_API_KEY else "limited"
         }
     }

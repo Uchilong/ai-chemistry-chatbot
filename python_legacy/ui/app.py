@@ -1,6 +1,5 @@
 """
-AI Chemistry Chatbot - Multi-Model UI
-Supports: Gemini (Accurate), Mistral (Fast), Ollama (Local)
+AI Chemistry Chatbot - Gemini-Powered UI
 """
 
 import streamlit as st
@@ -14,9 +13,6 @@ import tempfile
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from brain import get_brain
-from mistral_brain import get_mistral_brain
-from groq_brain import get_groq_brain
-from ollama_brain import get_ollama_brain
 from user_store import (
     init_user_store,
     get_or_create_user,
@@ -28,11 +24,10 @@ from user_store import (
     load_learning_resources,
     delete_learning_resource,
 )
-from safe_calc import evaluate_expression
 from config import (
-    GEMINI_API_KEY, MISTRAL_API_KEY, APP_TITLE, APP_ICON,
+    GEMINI_API_KEY, APP_ICON,
     SUPPORTED_FILE_TYPES, FILE_UPLOAD_LABEL, FILE_UPLOAD_HELP,
-    CHAT_INPUT_PLACEHOLDER, MODEL_CONFIGS, validate_config,
+    CHAT_INPUT_PLACEHOLDER, MODEL_CONFIGS,
     UI_THEME_MODE, DEFAULT_CHEMISTRY_LEVEL, DEFAULT_RESPONSE_STYLE
 )
 
@@ -40,8 +35,8 @@ from config import (
 # 1. PAGE CONFIGURATION
 # ============================================================================
 st.set_page_config(
-    page_title="🧪 Gia Sư Hóa Học AI",
-    page_icon="🧪",
+    page_title="Gia Sư Hóa Học AI",
+    page_icon=None,
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -52,7 +47,7 @@ if "messages" not in st.session_state:
 if "history" not in st.session_state:
     st.session_state.history = []
 if "selected_model" not in st.session_state:
-    st.session_state.selected_model = "Mistral (Fast)"
+    st.session_state.selected_model = "Gemini AI"
 if "user_email" not in st.session_state:
     st.session_state.user_email = ""
 if "user_id" not in st.session_state:
@@ -84,64 +79,38 @@ def append_to_calc(token: str) -> None:
     st.session_state.calc_expr = f"{st.session_state.calc_expr}{token}"
 
 # ============================================================================
-# 2. INITIALIZE AI BRAINS
+# 2. INITIALIZE GEMINI BRAIN
 # ============================================================================
+
+def get_brain_lazy():
+    """Load Gemini brain"""
+    try:
+        return get_brain()
+    except Exception as e:
+        print(f"Error loading Gemini brain: {e}")
+        return None
+
+# Check Gemini API
 available_models = {}
-brains = {}
 
-try:
-    gemini_brain = get_brain()
-    available_models["Gemini (Accurate)"] = MODEL_CONFIGS["gemini"]
-    brains["Gemini (Accurate)"] = gemini_brain
-except Exception as e:
-    pass
-
-try:
-    mistral_brain = get_mistral_brain()
-    available_models["Mistral (Fast)"] = MODEL_CONFIGS["mistral"]
-    brains["Mistral (Fast)"] = mistral_brain
-except Exception as e:
-    pass
-
-try:
-    ollama_brain = get_ollama_brain(model="llama3.2:latest")
-    if ollama_brain and ollama_brain._check_connection():
-        available_models["Ollama (Local)"] = MODEL_CONFIGS["ollama"]
-        brains["Ollama (Local)"] = ollama_brain
-except Exception:
-    pass
-
-try:
-    groq_brain = get_groq_brain()
-    available_models["Groq (Ultra Fast)"] = MODEL_CONFIGS["groq"]
-    brains["Groq (Ultra Fast)"] = groq_brain
-    print("✅ Groq brain initialized successfully")
-except Exception as e:
-    print(f"❌ Groq brain failed to initialize: {e}")
-    pass
-
-print("Available models:", available_models)
-
-# Validate configuration
-if not available_models:
+if GEMINI_API_KEY:
+    for model_key, config in MODEL_CONFIGS.items():
+        available_models[config["name"]] = config
+else:
     st.error(
-        "❌ **Không Có Mô Hình AI Nào**\n\n"
-        "Vui lòng cấu hình ít nhất một API:\n"
-        "- **Gemini**: https://aistudio.google.com/app/apikey\n"
-        "- **Mistral**: https://console.mistral.ai/api-keys/\n\n"
-        "Thêm chúng vào tệp `.env` với tên `GEMINI_API_KEY` và `MISTRAL_API_KEY`"
+        "Không Có Mô Hình AI Nào\n\n"
+        "Vui lòng cấu hình Gemini API"
     )
     st.stop()
 
-# Ensure selected model is valid and default to Mistral when available
+print("Available models:", available_models)
+
+# Ensure selected model is valid
 if st.session_state.selected_model not in available_models:
-    if "Mistral (Fast)" in available_models:
-        st.session_state.selected_model = "Mistral (Fast)"
-    else:
-        st.session_state.selected_model = list(available_models.keys())[0]
+    st.session_state.selected_model = "Gemini AI"
 
 # Get selected brain
-brain = brains.get(st.session_state.selected_model)
+brain = get_brain_lazy()
 
 # ============================================================================
 # 3. CUSTOM CSS STYLING
@@ -234,28 +203,43 @@ st.markdown(css, unsafe_allow_html=True)
 # 4. SIDEBAR - MODEL SELECTION & HISTORY
 # ============================================================================
 with st.sidebar:
-    st.title("🧪 Hóa Học AI")
+    st.title("Hóa Học AI")
+    
+    st.session_state.selected_model = st.selectbox(
+        "Chọn mô hình AI:",
+        options=list(available_models.keys()),
+        index=list(available_models.keys()).index(st.session_state.selected_model) if st.session_state.selected_model in available_models else 0
+    )
     
     st.markdown("---")
-    st.subheader("👤 Tài Khoản")
+    st.subheader("Tài Khoản")
     if not st.session_state.user_id:
         email_input = st.text_input(
             "Đăng nhập bằng Gmail",
             placeholder="tenban@gmail.com",
             key="login_email_input"
         )
-        if st.button("Đăng Nhập", use_container_width=True):
-            if email_input and "@" in email_input:
-                user_id = get_or_create_user(email_input)
-                st.session_state.user_id = user_id
-                st.session_state.user_email = email_input.strip().lower()
-                st.session_state.messages = load_chat_events(user_id)
-                st.session_state.history = load_questions(user_id)
-                st.session_state.learning_resources = load_learning_resources(user_id)
-                st.success("Đăng nhập thành công và đã tải tiến trình.")
-                st.rerun()
+        password_input = st.text_input(
+            "Mật khẩu",
+            type="password",
+            placeholder="Nhập mật khẩu",
+            key="login_password_input"
+        )
+        if st.button("Đăng Nhập / Đăng Ký", use_container_width=True):
+            if email_input and "@" in email_input and password_input:
+                user_id = get_or_create_user(email_input, password_input)
+                if user_id:
+                    st.session_state.user_id = user_id
+                    st.session_state.user_email = email_input.strip().lower()
+                    st.session_state.messages = load_chat_events(user_id)
+                    st.session_state.history = load_questions(user_id)
+                    st.session_state.learning_resources = load_learning_resources(user_id)
+                    st.success("Đăng nhập thành công!")
+                    st.rerun()
+                else:
+                    st.error("Email đã tồn tại với mật khẩu khác hoặc lỗi đăng nhập.")
             else:
-                st.error("Vui lòng nhập email hợp lệ.")
+                st.error("Vui lòng nhập email hợp lệ và mật khẩu.")
     else:
         st.caption(f"Đã đăng nhập: {st.session_state.user_email}")
         if st.button("Đăng Xuất", use_container_width=True):
@@ -266,43 +250,18 @@ with st.sidebar:
             st.session_state.learning_resources = []
             st.rerun()
     
-    # Chat Management
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("➕ Chat Mới", use_container_width=True):
-            st.session_state.messages = []
-            st.session_state.history = []
-            st.rerun()
-    with col2:
-        st.link_button(
-            "⌨️ ChemKey",
-            "https://educat.ninja/chemkey/",
-            use_container_width=True,
-            help="Mở bàn phím ký hiệu hóa học trực tuyến trong tab mới"
-        )
     st.link_button(
-        "🧮 Máy Tính Khoa Học",
+        "Máy Tính Khoa Học",
         "https://mathda.com/calculator/vi",
-        use_container_width=True,
-        help="Mở máy tính khoa học ngoài (MathDA)"
+        use_container_width=True
     )
 
     st.markdown("---")
-    st.subheader("🔬 Công Cụ Hóa Học")
+    st.subheader("Công Cụ Hóa Học")
     
     # Pollinations Media Tool
-    with st.expander("🎨 Tạo Hình Ảnh Hóa Học", expanded=False):
+    with st.expander("Tạo Hình Ảnh Hóa Học", expanded=False):
         st.markdown("**Tạo hình ảnh minh họa cho các khái niệm hóa học**")
-        
-        # Show limitations
-        st.info("""
-        **📋 Giới hạn công cụ:**
-        - ✅ **Khái niệm cơ bản:** Phân tử, cấu trúc, phản ứng đơn giản
-        - ✅ **4 phong cách:** Giáo dục, Sơ đồ, Thực tế, Hoạt hình
-        - ❌ **Cấu trúc phức tạp:** Không hỗ trợ cấu trúc 3D chi tiết
-        - ❌ **Hình ảnh động:** Chỉ tạo hình ảnh tĩnh
-        - ❌ **Số lượng giới hạn:** Miễn phí có giới hạn requests/ngày
-        """)
         
         concept = st.text_input(
             "Khái niệm hóa học:",
@@ -314,21 +273,20 @@ with st.sidebar:
             "Phong cách:",
             options=["educational", "diagram", "realistic", "cartoon"],
             format_func=lambda x: {
-                "educational": "📚 Giáo dục",
-                "diagram": "📊 Sơ đồ", 
-                "realistic": "🖼️ Thực tế",
-                "cartoon": "🎨 Hoạt hình"
+                "educational": "Giáo dục",
+                "diagram": "Sơ đồ", 
+                "realistic": "Thực tế",
+                "cartoon": "Hoạt hình"
             }[x],
             key="pollinations_style"
         )
         
-        st.caption("💡 **Gợi ý khái niệm:** phân tử nước, cấu trúc benzene, phản ứng trung hòa, tế bào, nguyên tử, liên kết hóa học, cầu phân tử")
+        st.caption("Gợi ý khái niệm: phân tử nước, cấu trúc benzene, phản ứng trung hòa, tế bào, nguyên tử, liên kết hóa học, cầu phân tử")
         
-        if st.button("🎨 Tạo Hình Ảnh", use_container_width=True, key="generate_image"):
+        if st.button("Tạo Hình Ảnh", use_container_width=True, key="generate_image"):
             if concept.strip():
                 with st.spinner("Đang tạo hình ảnh..."):
                     try:
-                        # Import and use media tool
                         import sys
                         from pathlib import Path as PathlibPath
                         backend_path = str(PathlibPath(__file__).parent.parent / "backend")
@@ -338,47 +296,29 @@ with st.sidebar:
                         
                         result = media_tool.generate_chemistry_image(concept.strip(), style)
                         if result.success:
-                            st.success("✅ Đã tạo hình ảnh thành công!")
-                            st.image(result.content_url, caption=f"🎨 {concept}")
+                            st.success("Đã tạo hình ảnh thành công!")
+                            st.image(result.content_url, caption=concept)
                             st.markdown(f"[Tải xuống hình ảnh]({result.content_url})")
                         else:
-                            st.error(f"❌ Lỗi: {result.error_message}")
+                            st.error(f"Lỗi: {result.error_message}")
                     except Exception as e:
-                        st.error(f"❌ Không thể tạo hình ảnh: {str(e)}")
+                        st.error(f"Không thể tạo hình ảnh: {str(e)}")
             else:
                 st.error("Vui lòng nhập khái niệm hóa học")
-        
-        # Warning about API limitations
-        st.warning("""
-        **⚠️ Lưu ý quan trọng:**
-        - Công cụ này sử dụng Pollinations AI (miễn phí)
-        - Có giới hạn số lượng hình ảnh mỗi ngày
-        - Để sử dụng không giới hạn, hãy thêm `POLLINATIONS_API_KEY` vào file `.env`
-        - Chất lượng hình ảnh có thể không chính xác 100% về mặt hóa học
-        """)
     
     # Wolfram Tool
-    with st.expander("🧮 Tính Toán Hóa Học", expanded=False):
+    with st.expander("Tính Toán Hóa Học", expanded=False):
         st.markdown("**Cân bằng phương trình và tính toán hóa học**")
         
-        # Show limitations
-        st.info("""
-        **📋 Giới hạn công cụ:**
-        - ✅ **Cân bằng phương trình:** Hỗ trợ các phương trình cơ bản
-        - ✅ **Khối lượng mol:** 20 hợp chất phổ biến (H₂O, CO₂, H₂SO₄, v.v.)
-        - ❌ **Định lượng phức tạp:** Không hỗ trợ tỷ lệ mol phức tạp (như C₄H₁₀ + O₂ → CO₂ + H₂O)
-        - ❌ **Đơn vị nâng cao:** Chỉ hỗ trợ g ↔ mol, không hỗ trợ kg, L, v.v.
-        """)
-        
         # Equation Balancing
-        st.markdown("##### ⚖️ Cân bằng phương trình")
+        st.markdown("##### Cân bằng phương trình")
         equation = st.text_input(
             "Phương trình hóa học:",
             placeholder="Ví dụ: H2 + O2 -> H2O",
             key="wolfram_equation"
         )
         
-        if st.button("⚖️ Cân bằng", use_container_width=True, key="balance_equation"):
+        if st.button("Cân bằng", use_container_width=True, key="balance_equation"):
             if equation.strip():
                 with st.spinner("Đang cân bằng phương trình..."):
                     try:
@@ -391,29 +331,29 @@ with st.sidebar:
                         
                         result = wolfram_tool.balance_equation(equation.strip())
                         if result.success:
-                            st.success("✅ Phương trình đã cân bằng!")
+                            st.success("Phương trình đã cân bằng!")
                             st.markdown(f"**Phương trình:** {result.result}")
                             if result.steps:
                                 with st.expander("Xem các bước"):
                                     st.text(result.steps)
                         else:
-                            st.error(f"❌ Lỗi: {result.error_message}")
+                            st.error(f"Lỗi: {result.error_message}")
                     except Exception as e:
-                        st.error(f"❌ Không thể cân bằng: {str(e)}")
+                        st.error(f"Không thể cân bằng: {str(e)}")
             else:
                 st.error("Vui lòng nhập phương trình")
         
         # Molar Mass Calculation
-        st.markdown("##### ⚛️ Tính khối lượng mol")
+        st.markdown("##### Tính khối lượng mol")
         formula = st.text_input(
             "Công thức hóa học:",
             placeholder="Ví dụ: H2O, C6H12O6, NaCl, H2SO4",
             key="wolfram_formula"
         )
         
-        st.caption("📚 **Hợp chất hỗ trợ:** H₂O, CO₂, O₂, H₂, N₂, NH₃, CH₄, NaCl, HCl, NaOH, C₆H₁₂O₆, H₂SO₄, HNO₃, CH₃COOH, C₂H₅OH, SO₂, NO₂, CO, H₂S, SO₃, CaCO₃, Na₂CO₃, KCl, MgSO₄")
+        st.caption("Hợp chất hỗ trợ: H₂O, CO₂, O₂, H₂, N₂, NH₃, CH₄, NaCl, HCl, NaOH, C₆H₁₂O₆, H₂SO₄, HNO₃, CH₃COOH, C₂H₅OH, SO₂, NO₂, CO, H₂S, SO₃, CaCO₃, Na₂CO₃, KCl, MgSO₄")
         
-        if st.button("⚛️ Tính Khối Lượng", use_container_width=True, key="calculate_molar"):
+        if st.button("Tính Khối Lượng", use_container_width=True, key="calculate_molar"):
             if formula.strip():
                 with st.spinner("Đang tính khối lượng mol..."):
                     try:
@@ -441,17 +381,16 @@ with st.sidebar:
             else:
                 st.error("Vui lòng nhập công thức hóa học")
         
-        # Warning about complex calculations
-        st.warning("""
-        **⚠️ Lưu ý quan trọng:**
-        - Công cụ này chỉ dành cho tính toán **cơ bản**
-        - Với các phương trình phức tạp như `C₄H₁₀ + O₂ → CO₂ + H₂O`, vui lòng sử dụng **Wolfram Alpha API**
-        - Để có kết quả chính xác, hãy thêm `WOLFRAM_APP_ID` vào file `.env`
+        # Note about complex calculations
+        st.markdown("""
+        **Lưu ý:**
+        - Công cụ này dành cho tính toán cơ bản.
+        - Với các phương trình phức tạp, hãy sử dụng mô hình AI hoặc Wolfram Alpha.
         """)
     
     st.markdown("---")
 
-    with st.expander("📚 Tài Liệu Học Tập", expanded=False):
+    with st.expander("Tài Liệu Học Tập", expanded=False):
         if st.session_state.user_id:
             title = st.text_input("Tiêu đề", key="resource_title")
             link = st.text_input("Đường dẫn", key="resource_link", placeholder="https://...")
@@ -482,7 +421,7 @@ with st.sidebar:
             st.info("Đăng nhập để lưu tài liệu học tập.")
     
     # Chat History
-    with st.expander("🕰️ Lịch Sử Câu Hỏi", expanded=False):
+    with st.expander("Lịch Sử Câu Hỏi", expanded=False):
         if st.session_state.history:
             for i, q in enumerate(reversed(st.session_state.history[-20:])):
                 if st.button(
@@ -501,14 +440,11 @@ with st.sidebar:
 st.markdown(
     f"""
     <div class="app-header">
-        <h1>{APP_ICON} Hóa Học AI</h1>
-        <p>{st.session_state.selected_model}</p>
+        <h1>Hóa Học AI</h1>
     </div>
     """,
     unsafe_allow_html=True
 )
-
-quick_prompt = None
 
 # Display messages
 for message in st.session_state.messages:
@@ -517,16 +453,9 @@ for message in st.session_state.messages:
         if "image" in message:
             st.image(message["image"], width=300, caption=message.get("file_name", "Image"))
         if "file_name" in message and "image" not in message:
-            st.caption(f"📁 File: {message['file_name']}")
+            st.caption(f"File: {message['file_name']}")
 
-# Show AI model limitations
-st.info("""
-**🤖 Khả năng AI hiện tại:**
-- ✅ **Gemini**: Phân tích hình ảnh, xử lý văn bản, tính toán hóa học
-- ✅ **Mistral/Groq**: Xử lý văn bản nhanh, không hỗ trợ hình ảnh
-- ❌ **Hình ảnh phức tạp**: Sơ đồ hóa học phức tạp có thể không chính xác
-- ❌ **Tính toán nâng cao**: Các phản ứng phức tạp cần Wolfram Alpha API
-""")
+quick_prompt = None
 
 # ============================================================================
 # 6. INPUT AREA - FILE UPLOAD & TEXT INPUT
@@ -538,17 +467,8 @@ uploaded_file = None
 col_file, col_chat = st.columns([0.15, 0.85])
 
 with col_file:
-    with st.popover("📎 Tải lên"):
-        st.markdown("### 📤 Tải Lên Tệp")
-        
-        # Show file limitations
-        st.info("""
-        **📋 Giới hạn tệp:**
-        - ✅ **Hình ảnh**: jpg, png, gif, webp (≤10MB)
-        - ✅ **PDF**: Hỗ trợ OCR văn bản (≤10MB)
-        - ❌ **Video/Audio**: Không hỗ trợ
-        - ❌ **Tệp lớn**: >10MB sẽ bị từ chối
-        """)
+    with st.popover("Tải lên"):
+        st.markdown("### Tải Lên Tệp")
         
         uploaded_file = st.file_uploader(
             FILE_UPLOAD_LABEL,
@@ -557,7 +477,7 @@ with col_file:
             label_visibility="collapsed"
         )
         if uploaded_file:
-            st.success(f"✅ {uploaded_file.name}")
+            st.success(f"Đã tải lên: {uploaded_file.name}")
             st.caption(f"Kích thước: {uploaded_file.size / 1024:.1f} KB")
 
 # Chat input
@@ -586,7 +506,7 @@ if quick_prompt:
 # ============================================================================
 if prompt:
     if not brain:
-        st.error(f"❌ {st.session_state.selected_model} không khả dụng")
+        st.error(f"{st.session_state.selected_model} không khả dụng")
     else:
         # Prepare message
         new_message = {"role": "user", "content": prompt}
@@ -610,9 +530,9 @@ if prompt:
                     image_data = tmp.name
             
             new_message["file_name"] = uploaded_file.name
-            st.session_state.history.append(f"📎 {prompt[:30]}...")
+            st.session_state.history.append(f"File: {prompt[:30]}...")
             if st.session_state.user_id:
-                save_question(st.session_state.user_id, f"📎 {prompt[:30]}...")
+                save_question(st.session_state.user_id, f"File: {prompt[:30]}...")
         else:
             st.session_state.history.append(prompt)
             if st.session_state.user_id:
@@ -628,60 +548,69 @@ if prompt:
             )
         
         # Get AI response
-        with st.spinner(f"🤖 {st.session_state.selected_model} đang xử lý..."):
-            try:
-                if image_data:
-                    # Use appropriate method based on model
-                    if st.session_state.selected_model == "Gemini (Accurate)":
-                        ai_response = brain.chat_with_file(
-                            prompt,
-                            image_data,
-                            chemistry_context={
-                                "level": DEFAULT_CHEMISTRY_LEVEL,
-                                "style": DEFAULT_RESPONSE_STYLE
-                            }
-                        )
-                    elif st.session_state.selected_model == "Mistral (Fast)":
-                        ai_response = brain.chat_with_file(
-                            prompt,
-                            image_data,
-                            chemistry_context={
-                                "level": DEFAULT_CHEMISTRY_LEVEL,
-                                "style": DEFAULT_RESPONSE_STYLE
-                            }
-                        )
-                    else:  # Ollama
-                        ai_response = "⚠️ Phân tích tệp yêu cầu Gemini hoặc Mistral API"
-                    
-                    # Cleanup
-                    try:
-                        os.unlink(image_data)
-                    except:
-                        pass
-                else:
-                    # Text only
-                    ai_response = brain.chat(
+        with st.chat_message("assistant"):
+            if image_data:
+                # Use appropriate method based on model
+                if st.session_state.selected_model == "Gemini AI":
+                    response_stream = brain.chat_with_file(
                         prompt,
-                        chat_history=st.session_state.messages[:-1],
+                        image_data,
                         chemistry_context={
                             "level": DEFAULT_CHEMISTRY_LEVEL,
                             "style": DEFAULT_RESPONSE_STYLE
-                        }
+                        },
+                        stream=True
                     )
-                
-                st.session_state.messages.append({
-                    "role": "assistant",
-                    "content": ai_response
-                })
-                if st.session_state.user_id:
-                    save_chat_event(
-                        st.session_state.user_id,
-                        role="assistant",
-                        content=ai_response,
+                elif st.session_state.selected_model in ["Gemma 4", "Gemma 3"]:
+                    response_stream = brain.chat_with_file(
+                        prompt,
+                        image_data,
+                        chemistry_context={
+                            "level": DEFAULT_CHEMISTRY_LEVEL,
+                            "style": DEFAULT_RESPONSE_STYLE
+                        },
+                        stream=True
                     )
-                
-            except Exception as e:
-                st.error(f"❌ Lỗi: {str(e)}")
+                else:
+                    st.error("Phân tích tệp yêu cầu một mô hình AI hợp lệ")
+                    st.stop()
+            else:
+                # Text only
+                response_stream = brain.chat(
+                    prompt,
+                    chat_history=st.session_state.messages[:-1],
+                    chemistry_context={
+                        "level": DEFAULT_CHEMISTRY_LEVEL,
+                        "style": DEFAULT_RESPONSE_STYLE
+                    },
+                    stream=True
+                )
+            
+            # Display stream
+            if isinstance(response_stream, str):
+                st.markdown(response_stream)
+                ai_response = response_stream
+            else:
+                ai_response = st.write_stream(response_stream)
+            
+            # Cleanup temp file
+            if image_data:
+                try:
+                    os.unlink(image_data)
+                except Exception:
+                    pass
+            
+            st.session_state.messages.append({
+                "role": "assistant",
+                "content": ai_response
+            })
+            
+            if st.session_state.user_id:
+                save_chat_event(
+                    st.session_state.user_id,
+                    role="assistant",
+                    content=ai_response,
+                )
         
         # Set flag to clear input on next render
         st.session_state.message_just_sent = True
@@ -694,7 +623,7 @@ st.markdown("---")
 st.markdown("""
     <div style="text-align: center; color: #666;">
     <small>
-    🧪 Gia Sư Hóa Học AI | Hỗ Trợ Đa Mô Hình | Học Tập Nhanh & Chính Xác
+    Gia Sư Hóa Học AI | Hỗ Trợ Đa Mô Hình | Học Tập Nhanh & Chính Xác
     </small>
     </div>
     """, unsafe_allow_html=True)
