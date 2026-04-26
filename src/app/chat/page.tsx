@@ -166,9 +166,12 @@ export default function ChatPage() {
       });
 
       const serverChatId = response.headers.get("x-chat-id");
+      console.log("Chat Page: serverChatId received:", serverChatId);
+      
       if (serverChatId && !currentChatId) {
         setCurrentChatId(serverChatId);
-        fetchChats(); // Refresh sidebar
+        // Refresh chats to show the new one in sidebar
+        await fetchChats();
       }
 
       if (!response.body) return;

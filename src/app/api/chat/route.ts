@@ -9,7 +9,23 @@ export async function POST(req: Request) {
     const body = await req.json();
     console.log("Chat API: Body parsed", { model: body.model, hasFile: !!body.fileData });
 
-    const { message, history, model: modelName, fileData, fileName, mimeType } = body;
+    const { message, history, model: modelName, fileData, fileName, mimeType, chatId, userId } = body;
+
+    let activeChatId = chatId;
+
+    // Đảm bảo userId là kiểu số (NextAuth có thể trả về chuỗi)
+    const numericUserId = userId ? Number(userId) : null;
+
+    // If logged in and starting a new chat, create it
+    if (numericUserId && !activeChatId && message) {
+      const newChat = await createChat(numericUserId, message.substring(0, 50) || "Cuộc trò chuyện mới");
+      activeChatId = newChat.id;
+    }
+
+    // Save user message if chatId is available
+    if (activeChatId) {
+      await addMessage(Number(activeChatId), 'user', message || "[Tệp tin]");
+    }
 
     if (!process.env.GEMINI_API_KEY) {
       console.error("Chat API: GEMINI_API_KEY is missing!");
