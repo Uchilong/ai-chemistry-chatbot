@@ -535,6 +535,20 @@ export default function ChatPage() {
                 </motion.div>
               )}
             </AnimatePresence>
+            
+            <div className="flex justify-end mb-3">
+              <a 
+                href="https://www.ilovepdf.com/word_to_pdf" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-[10px] text-primary/80 hover:text-primary font-bold uppercase tracking-[0.2em] flex items-center gap-2 transition-colors border border-white/5 hover:border-primary/40 px-3 py-1.5 rounded-xl bg-white/5 backdrop-blur-sm shadow-lg"
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Chuyển Word sang PDF</span>
+                <span className="sm:hidden">Word sang PDF</span>
+                <ExternalLink className="w-2.5 h-2.5" />
+              </a>
+            </div>
 
             <div className="relative glass-card border-white/10 focus-within:border-primary/50 focus-within:ring-4 focus-within:ring-primary/5 p-2 flex items-end gap-2 transition-all duration-500 bg-white/[0.02]">
               <input 
@@ -581,16 +595,6 @@ export default function ChatPage() {
                 <span className="w-1 h-1 bg-gray-800 rounded-full" />
                 Ctrl + V để dán nhanh
               </p>
-              <a 
-                href="https://www.ilovepdf.com/word_to_pdf" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-[10px] text-primary/80 hover:text-primary font-bold uppercase tracking-[0.2em] flex items-center gap-2 transition-colors border border-primary/20 hover:border-primary/40 px-3 py-1 rounded-full bg-primary/5"
-              >
-                <FileText className="w-3 h-3" />
-                Chuyển Word sang PDF
-                <ExternalLink className="w-2.5 h-2.5" />
-              </a>
             </div>
           </div>
         </div>
