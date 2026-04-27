@@ -536,7 +536,7 @@ export default function ChatPage() {
               )}
             </AnimatePresence>
             
-            <div className="flex justify-end mb-3">
+            <div className="flex justify-start mb-3">
               <a 
                 href="https://www.ilovepdf.com/word_to_pdf" 
                 target="_blank" 
