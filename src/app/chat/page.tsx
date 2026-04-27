@@ -22,7 +22,9 @@ import {
   Menu,
   X,
   Copy,
-  Check
+  Check,
+  FileText,
+  ExternalLink
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -395,9 +397,14 @@ export default function ChatPage() {
               <p className="text-gray-500 text-lg max-w-md mx-auto leading-relaxed">
                 Tôi là trợ lý AI chuyên về Hóa học. Tôi có thể giúp bạn giải bài tập, cân bằng phương trình và hơn thế nữa.
               </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-12 w-full max-w-2xl px-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-12 w-full max-w-3xl px-4">
                 <QuickAction icon={<Zap className="w-5 h-5 text-yellow-500" />} text="Cân bằng phương trình" />
                 <QuickAction icon={<BrainCircuit className="w-5 h-5 text-blue-500" />} text="Giải thích liên kết" />
+                <QuickAction 
+                  icon={<FileText className="w-5 h-5 text-primary" />} 
+                  text="Chuyển Word sang PDF" 
+                  href="https://www.ilovepdf.com/word_to_pdf"
+                />
               </div>
             </div>
           ) : (
@@ -565,7 +572,7 @@ export default function ChatPage() {
                 <Send className="w-6 h-6" />
               </button>
             </div>
-            <div className="mt-4 flex items-center justify-center gap-6">
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-y-3 gap-x-6 md:gap-x-8">
               <p className="text-[10px] text-gray-700 font-bold uppercase tracking-[0.2em] flex items-center gap-2">
                 <span className="w-1 h-1 bg-gray-800 rounded-full" />
                 Hỗ trợ PDF (đầy đủ ảnh), Ảnh trực tiếp
@@ -574,6 +581,16 @@ export default function ChatPage() {
                 <span className="w-1 h-1 bg-gray-800 rounded-full" />
                 Ctrl + V để dán nhanh
               </p>
+              <a 
+                href="https://www.ilovepdf.com/word_to_pdf" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-[10px] text-primary/80 hover:text-primary font-bold uppercase tracking-[0.2em] flex items-center gap-2 transition-colors border border-primary/20 hover:border-primary/40 px-3 py-1 rounded-full bg-primary/5"
+              >
+                <FileText className="w-3 h-3" />
+                Chuyển Word sang PDF
+                <ExternalLink className="w-2.5 h-2.5" />
+              </a>
             </div>
           </div>
         </div>
@@ -608,13 +625,33 @@ function HistoryItem({ title, active, onClick, onDelete }: { title: string, acti
   );
 }
 
-function QuickAction({ icon, text }: { icon: React.ReactNode, text: string }) {
-  return (
-    <button className="flex items-center gap-4 p-5 glass-card text-left text-[15px] font-semibold hover:bg-white/10 group active:scale-[0.98]">
+function QuickAction({ icon, text, href }: { icon: React.ReactNode, text: string, href?: string }) {
+  const content = (
+    <>
       <div className="shrink-0 transition-transform group-hover:scale-110 duration-300">
         {icon}
       </div>
       <span className="text-gray-300 group-hover:text-white transition-colors">{text}</span>
+    </>
+  );
+
+  if (href) {
+    return (
+      <a 
+        href={href} 
+        target="_blank" 
+        rel="noopener noreferrer"
+        className="flex items-center gap-4 p-5 glass-card text-left text-[15px] font-semibold hover:bg-white/10 group active:scale-[0.98] no-underline"
+      >
+        {content}
+        <ExternalLink className="w-4 h-4 ml-auto text-gray-600 group-hover:text-primary transition-colors" />
+      </a>
+    );
+  }
+
+  return (
+    <button className="flex items-center gap-4 p-5 glass-card text-left text-[15px] font-semibold hover:bg-white/10 group active:scale-[0.98]">
+      {content}
     </button>
   );
 }
