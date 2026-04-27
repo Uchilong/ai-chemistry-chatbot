@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion';
 import { Beaker, Book, MessageSquare, Zap, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 
 export default function LandingPage() {
   return (
@@ -17,7 +18,7 @@ export default function LandingPage() {
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-3">
             {/* User needs to save the uploaded image as public/logo.png */}
-            <img src="/logo.png" alt="MITC Logo" className="h-12 w-12 object-contain bg-white rounded-full p-0.5" />
+            <Image src="/logo.png" alt="MITC Logo" width={48} height={48} className="h-12 w-12 object-contain bg-white rounded-full p-0.5" />
             <div className="hidden sm:flex flex-col">
               <span className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">Trường CĐ Công thương Miền trung</span>
               <span className="text-sm font-bold text-white">Khoa Giáo dục phổ thông</span>

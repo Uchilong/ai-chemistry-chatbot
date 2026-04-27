@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useSession, signOut } from 'next-auth/react';
 import { 
   Send, 
@@ -284,7 +285,7 @@ export default function ChatPage() {
             <div className="p-5 border-b border-white/5 flex items-center justify-between">
               <div className="flex flex-col gap-3">
                 <div className="flex items-center gap-2">
-                  <img src="/logo.png" alt="MITC Logo" className="h-8 w-8 object-contain bg-white rounded-full p-0.5" />
+                  <Image src="/logo.png" alt="MITC Logo" width={32} height={32} className="h-8 w-8 object-contain bg-white rounded-full p-0.5" />
                   <div className="flex flex-col">
                     <span className="text-[8px] uppercase tracking-wider text-gray-400 font-semibold leading-tight">Trường CĐ Công thương Miền trung</span>
                     <span className="text-[11px] font-bold text-white leading-tight">Khoa Giáo dục phổ thông</span>
